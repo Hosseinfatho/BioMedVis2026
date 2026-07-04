@@ -83,6 +83,63 @@ export function rowY(index) {
   return CHART_MARGIN.top + PLOT_H - (index + 1) * ROW_PX;
 }
 
+// Time extent [t0, t1] of a single trajectory row, used to place the vertical
+// arms of the hover crosshair around the trajectory's bar.
+export function rowTimeBounds(row, viewMode) {
+  if (!row) return null;
+  if (viewMode === 'concatenated') {
+    const segs = row.segments || [];
+    if (!segs.length) return null;
+    let t0 = Infinity;
+    let t1 = -Infinity;
+    for (const s of segs) {
+      const len = s.length ?? (s.states ? s.states.length : 0);
+      t0 = Math.min(t0, s.concatStart);
+      t1 = Math.max(t1, s.concatStart + len);
+    }
+    return { t0, t1 };
+  }
+  const len = row.length ?? (row.states ? row.states.length : 0);
+  return { t0: row.startTime, t1: row.startTime + len };
+}
+
+// Draws a "target" crosshair for the hovered trajectory: one horizontal line at
+// the trajectory's row plus two vertical lines bounding its time span (or the
+// full plot width when no bounds are given). Forms a big plus centred on the row.
+export function drawHoverCrosshair(ctx, width, index, count, bounds) {
+  if (index == null || index < 0 || index >= count) return;
+  const M = CHART_MARGIN;
+  const plotW = width - M.left - M.right;
+  const yTop = M.top;
+  const plotH = PLOT_H;
+  const y = rowY(index) + ROW_PX / 2;
+  const x = (t) => M.left + (Math.min(t, X_MAX) / X_MAX) * plotW;
+
+  let x0 = M.left;
+  let x1 = M.left + plotW;
+  if (bounds && bounds.t0 != null && bounds.t1 != null) {
+    x0 = x(bounds.t0);
+    x1 = x(bounds.t1);
+  }
+
+  ctx.save();
+  ctx.strokeStyle = '#d62728';
+  ctx.lineWidth = 1.5;
+
+  ctx.beginPath();
+  ctx.moveTo(M.left, y + 0.5);
+  ctx.lineTo(M.left + plotW, y + 0.5);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(Math.round(x0) + 0.5, yTop);
+  ctx.lineTo(Math.round(x0) + 0.5, yTop + plotH);
+  ctx.moveTo(Math.round(x1) + 0.5, yTop);
+  ctx.lineTo(Math.round(x1) + 0.5, yTop + plotH);
+  ctx.stroke();
+  ctx.restore();
+}
+
 // Draws the selection window as two parallel horizontal lines (the range
 // boundaries) plus a light band, matching a brush selected on the matrices.
 // `startIdx`/`endIdx` are inclusive trajectory-row indices; `count` is the

@@ -6,6 +6,8 @@ import {
   drawChartGrid,
   rowY,
   drawSelectionBand,
+  drawHoverCrosshair,
+  rowTimeBounds,
 } from '../utils/chartLayout';
 
 function EpochLegend() {
@@ -55,6 +57,7 @@ export default function TrajectoryRows({
   rows,
   viewMode = 'original',
   selection = null,
+  hoverIndex = null,
 }) {
   const canvasRef = useRef(null);
   const wrapRef = useRef(null);
@@ -103,7 +106,17 @@ export default function TrajectoryRows({
     if (selection) {
       drawSelectionBand(ctx, width, selection.start, selection.end, rows.length);
     }
-  }, [rows, width, viewMode, selection]);
+
+    if (hoverIndex != null) {
+      drawHoverCrosshair(
+        ctx,
+        width,
+        hoverIndex,
+        rows.length,
+        rowTimeBounds(rows[hoverIndex], viewMode)
+      );
+    }
+  }, [rows, width, viewMode, selection, hoverIndex]);
 
   useEffect(() => {
     draw();

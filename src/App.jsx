@@ -15,6 +15,8 @@ export default function App() {
   const [generated, setGenerated] = useState(false);
   // trajectory window shared between the compare matrices and the charts
   const [selection, setSelection] = useState(null);
+  // hovered trajectory column, highlighted as a crosshair on the charts
+  const [hoverIndex, setHoverIndex] = useState(null);
 
   const numStates = MODELS[selectedModel].numStates;
 
@@ -68,6 +70,7 @@ export default function App() {
         selectedModel={selectedModel}
         numStates={numStates}
         selection={selection}
+        hoverIndex={hoverIndex}
       />
 
       <Compare
@@ -78,6 +81,8 @@ export default function App() {
         defaultB={selectedSystems[1]}
         selection={selection}
         onSelectionChange={setSelection}
+        hoverIndex={hoverIndex}
+        onHoverChange={setHoverIndex}
       />
     </div>
   );

@@ -13,6 +13,8 @@ export default function InteractiveMatrix({
   numStates,
   selection,
   onSelectionChange,
+  hoverIndex,
+  onHoverChange,
 }) {
   const numCols = columns.length;
   const plotRef = useRef(null);
@@ -99,6 +101,12 @@ export default function InteractiveMatrix({
     };
   };
 
+  const reportHover = (e) => {
+    if (!onHoverChange || numCols === 0) return;
+    onHoverChange(colAt(e.clientX));
+  };
+  const clearHover = () => onHoverChange?.(null);
+
   // click-drag on empty brush area draws a fresh window
   const startNew = (e) => {
     if (e.target !== e.currentTarget) return;
@@ -140,7 +148,24 @@ export default function InteractiveMatrix({
     <div className="interactive-matrix">
       <div className="im-plot" ref={plotRef}>
         <RatioMatrix columns={columns} numStates={numStates} />
-        <div className="im-brush-layer" onMouseDown={startNew}>
+        <div
+          className="im-brush-layer"
+          onMouseDown={startNew}
+          onMouseMove={reportHover}
+          onMouseLeave={clearHover}
+        >
+          {numCols > 0 &&
+            hoverIndex != null &&
+            hoverIndex >= 0 &&
+            hoverIndex < numCols && (
+              <div
+                className="im-hover-col"
+                style={{
+                  left: `${LABEL_W + hoverIndex * colW}px`,
+                  width: `${colW}px`,
+                }}
+              />
+            )}
           {numCols > 0 && (
             <div
               className="im-selection"

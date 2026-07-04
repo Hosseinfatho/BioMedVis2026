@@ -44,6 +44,8 @@ export default function Compare({
   defaultB,
   selection,
   onSelectionChange,
+  hoverIndex,
+  onHoverChange,
 }) {
   const systemIds = Object.keys(SYSTEMS);
   const [systemA, setSystemA] = useState(defaultA || systemIds[0]);
@@ -199,6 +201,8 @@ export default function Compare({
             numStates={numStates}
             selection={selection}
             onSelectionChange={onSelectionChange}
+            hoverIndex={hoverIndex}
+            onHoverChange={onHoverChange}
           />
         </>
       )}
@@ -215,6 +219,8 @@ export default function Compare({
             numStates={numStates}
             selection={selection}
             onSelectionChange={onSelectionChange}
+            hoverIndex={hoverIndex}
+            onHoverChange={onHoverChange}
           />
 
           <div className="compare-title">
@@ -225,6 +231,8 @@ export default function Compare({
             numStates={numStates}
             selection={selection}
             onSelectionChange={onSelectionChange}
+            hoverIndex={hoverIndex}
+            onHoverChange={onHoverChange}
           />
         </>
       )}

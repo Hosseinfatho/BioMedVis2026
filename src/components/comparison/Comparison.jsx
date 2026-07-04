@@ -5,6 +5,7 @@ export default function Comparison({
   selectedModel,
   numStates,
   selection,
+  hoverIndex,
 }) {
   if (!systemData.length) return null;
 
@@ -19,6 +20,7 @@ export default function Comparison({
           modelId={selectedModel}
           numStates={numStates}
           selection={selection}
+          hoverIndex={hoverIndex}
         />
       ))}
     </div>

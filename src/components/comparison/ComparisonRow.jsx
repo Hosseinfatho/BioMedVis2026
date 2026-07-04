@@ -9,6 +9,7 @@ export default function ComparisonRow({
   modelId,
   numStates,
   selection,
+  hoverIndex,
 }) {
   return (
     <div className="comparison-row">
@@ -20,7 +21,12 @@ export default function ComparisonRow({
       />
       <div className="comparison-charts">
         <div className="panel-half panel-epoch">
-          <TrajectoryRows rows={rows} viewMode={viewMode} selection={selection} />
+          <TrajectoryRows
+            rows={rows}
+            viewMode={viewMode}
+            selection={selection}
+            hoverIndex={hoverIndex}
+          />
         </div>
         <div className="panel-half panel-state">
           <State
@@ -28,6 +34,7 @@ export default function ComparisonRow({
             numStates={numStates}
             viewMode={viewMode}
             selection={selection}
+            hoverIndex={hoverIndex}
           />
         </div>
       </div>

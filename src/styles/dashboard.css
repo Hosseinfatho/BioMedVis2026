@@ -495,6 +495,16 @@ body {
   cursor: crosshair;
 }
 
+.im-hover-col {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  pointer-events: none;
+  background: rgba(214, 39, 40, 0.12);
+  border-left: 1px solid #d62728;
+  border-right: 1px solid #d62728;
+}
+
 .im-selection {
   position: absolute;
   top: 0;
