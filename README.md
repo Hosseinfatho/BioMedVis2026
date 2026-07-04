@@ -53,16 +53,17 @@ npm run preview
    - **Concatenated** — each row is a chained path from `concatenated.txt`; segments are glued end-to-end from frame 0. Paths are sorted by total length (shortest at the bottom) for a clean staircase on the Y axis.
 4. Click **Generate** to load and draw the charts.
 
-### Comparison matrix
+### Compare section
 
-Below the per-system charts, a **fingerprint comparison matrix** summarizes state occupancy and directed transition rates for the first selected system.
+Below the per-system charts, **Compare** lets you pick two systems and inspect ratio matrices side by side.
 
-- **Rows** — one row per Markov state (`S0`, `S1`, …), then one row per directed transition (`S0→S1`, `S0→S2`, …). Row count depends on the state model: 4 rows (2-state), 9 rows (3-state), or 16 rows (4-state).
-- **Columns** — one column per trajectory (original) or concatenated path.
-- **State cells** — fill ratio = frames in that state ÷ total frames; color matches the state legend.
-- **Transition cells** — fill ratio = transition count ÷ total transitions; top half = source state color, bottom half = target state color.
+- **System A / B** — select systems, then click **Compare** to show B and a **Difference** matrix (`|A − B|`, empty when identical).
+- **Ratio matrix** — rows = Markov states then directed transitions; columns = trajectories (union of slots, matched by prefix before `_`).
+- **State cells** — occupancy ratio with state color; **transition cells** — rate ratio with source/target colors.
+- **Interactive brush** — drag on matrix columns to select a trajectory window; selection syncs to epoch/state charts above.
+- **Rate** — N×N heatmap of state (diagonal) and transition (off-diagonal) percentages for the brushed window.
 
-The matrix uses the same view mode (Original / Concatenated) and state model as the controls above.
+Matrices use the same view mode (Original / Concatenated) and state model as the controls above.
 
 ## Project layout
 
@@ -78,8 +79,11 @@ src/
       ComparisonRow.jsx
       ComparisonHeader.jsx
     compare/
-      Compare.jsx              # comparison matrix wrapper
-      FingerprintMatrix.jsx    # canvas fingerprint matrix
+      Compare.jsx              # system A/B picker + difference
+      InteractiveMatrix.jsx    # brush + ratio matrix
+      RateMatrix.jsx           # N×N percentage heatmap
+      RatioMatrix.jsx          # canvas ratio matrix
+      glyphs.js, layout.js
   config/dataFiles.js          # paths and system metadata
   utils/                       # parsers, feature extraction, chart layout
 public/data/                   # state/order/concatenated files (local only)
