@@ -6,10 +6,12 @@ export default function ComparisonRow({
   systemId,
   rows,
   viewMode,
+  originalRows,
   modelId,
   numStates,
   selection,
   hoverIndex,
+  matrixSlots,
 }) {
   return (
     <div className="comparison-row">
@@ -24,8 +26,10 @@ export default function ComparisonRow({
           <TrajectoryRows
             rows={rows}
             viewMode={viewMode}
+            originalRows={originalRows}
             selection={selection}
             hoverIndex={hoverIndex}
+            matrixSlots={matrixSlots}
           />
         </div>
         <div className="panel-half panel-state">
@@ -33,8 +37,10 @@ export default function ComparisonRow({
             rows={rows}
             numStates={numStates}
             viewMode={viewMode}
+            originalRows={originalRows}
             selection={selection}
             hoverIndex={hoverIndex}
+            matrixSlots={matrixSlots}
           />
         </div>
       </div>

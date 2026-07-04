@@ -17,6 +17,7 @@ export default function App() {
   const [selection, setSelection] = useState(null);
   // hovered trajectory column, highlighted as a crosshair on the charts
   const [hoverIndex, setHoverIndex] = useState(null);
+  const [matrixSlots, setMatrixSlots] = useState([]);
 
   const numStates = MODELS[selectedModel].numStates;
 
@@ -30,7 +31,11 @@ export default function App() {
       const results = await Promise.all(
         selectedSystems.map(async (systemId) => {
           const rows = await loadSystemData(systemId, selectedModel, viewMode);
-          return { systemId, rows, viewMode };
+          const originalRows =
+            viewMode === 'concatenated'
+              ? await loadSystemData(systemId, selectedModel, 'original')
+              : null;
+          return { systemId, rows, viewMode, originalRows };
         })
       );
       setSystemData(results);
@@ -71,11 +76,11 @@ export default function App() {
         numStates={numStates}
         selection={selection}
         hoverIndex={hoverIndex}
+        matrixSlots={matrixSlots}
       />
 
       <Compare
         selectedModel={selectedModel}
-        viewMode={viewMode}
         numStates={numStates}
         defaultA={selectedSystems[0]}
         defaultB={selectedSystems[1]}
@@ -83,6 +88,7 @@ export default function App() {
         onSelectionChange={setSelection}
         hoverIndex={hoverIndex}
         onHoverChange={setHoverIndex}
+        onSlotsChange={setMatrixSlots}
       />
     </div>
   );

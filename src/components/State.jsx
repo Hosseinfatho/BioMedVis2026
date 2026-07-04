@@ -9,6 +9,8 @@ import {
   rowY,
   drawSelectionBand,
   drawHoverCrosshair,
+  drawConcatenatedSelectionBand,
+  drawConcatenatedHoverCrosshair,
   rowTimeBounds,
 } from '../utils/chartLayout';
 
@@ -67,8 +69,10 @@ export default function State({
   rows,
   numStates,
   viewMode = 'original',
+  originalRows = null,
   selection = null,
   hoverIndex = null,
+  matrixSlots = [],
 }) {
   const canvasRef = useRef(null);
   const wrapRef = useRef(null);
@@ -124,19 +128,42 @@ export default function State({
     ctx.restore();
 
     if (selection) {
-      drawSelectionBand(ctx, width, selection.start, selection.end, rows.length);
+      if (viewMode === 'concatenated' && originalRows) {
+        drawConcatenatedSelectionBand(
+          ctx,
+          width,
+          rows,
+          originalRows,
+          matrixSlots,
+          selection.start,
+          selection.end
+        );
+      } else {
+        drawSelectionBand(ctx, width, selection.start, selection.end, rows.length);
+      }
     }
 
     if (hoverIndex != null) {
-      drawHoverCrosshair(
-        ctx,
-        width,
-        hoverIndex,
-        rows.length,
-        rowTimeBounds(rows[hoverIndex], viewMode)
-      );
+      if (viewMode === 'concatenated' && originalRows) {
+        drawConcatenatedHoverCrosshair(
+          ctx,
+          width,
+          rows,
+          originalRows,
+          matrixSlots,
+          hoverIndex
+        );
+      } else {
+        drawHoverCrosshair(
+          ctx,
+          width,
+          hoverIndex,
+          rows.length,
+          rowTimeBounds(rows[hoverIndex], viewMode)
+        );
+      }
     }
-  }, [rows, width, viewMode, selection, hoverIndex]);
+  }, [rows, width, viewMode, originalRows, selection, hoverIndex, matrixSlots]);
 
   useEffect(() => {
     draw();

@@ -5,21 +5,15 @@ import {
   computeTrajectoryFeatures,
   getRowStates,
 } from '../../utils/computeTransitionFeatures';
+import { slotKey } from '../../utils/slotKey';
 import InteractiveMatrix from './InteractiveMatrix';
 
-// Trajectory names look like `e10s10_e3s15p0f841`. The part before `_` is the
-// adaptive-sampling slot and exists in every system, so we use it to match the
-// same slot across two systems.
-function slotKey(name) {
-  return name.split('_')[0];
-}
-
-function featuresBySlot(rows, viewMode, numStates) {
+function featuresBySlot(rows, numStates) {
   const map = new Map();
   rows.forEach((row) => {
     const key = slotKey(row.name);
     if (map.has(key)) return;
-    map.set(key, computeTrajectoryFeatures(getRowStates(row, viewMode), numStates));
+    map.set(key, computeTrajectoryFeatures(getRowStates(row, 'original'), numStates));
   });
   return map;
 }
@@ -38,7 +32,6 @@ const EMPTY = { stateRatios: [], transitionRatios: {} };
 
 export default function Compare({
   selectedModel,
-  viewMode,
   numStates,
   defaultA,
   defaultB,
@@ -46,6 +39,7 @@ export default function Compare({
   onSelectionChange,
   hoverIndex,
   onHoverChange,
+  onSlotsChange,
 }) {
   const systemIds = Object.keys(SYSTEMS);
   const [systemA, setSystemA] = useState(defaultA || systemIds[0]);
@@ -57,8 +51,8 @@ export default function Compare({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // load both systems whenever the selection / model / view changes; changing
-  // any of them hides the comparison until "Compare" is pressed again.
+  // Matrices always use original per-trajectory data; chart view mode does not
+  // affect columns, brush, or Rate aggregation.
   useEffect(() => {
     let cancelled = false;
     setApplied(false);
@@ -66,8 +60,8 @@ export default function Compare({
     setError(null);
 
     Promise.all([
-      loadSystemData(systemA, selectedModel, viewMode),
-      loadSystemData(systemB, selectedModel, viewMode),
+      loadSystemData(systemA, selectedModel, 'original'),
+      loadSystemData(systemB, selectedModel, 'original'),
     ])
       .then(([a, b]) => {
         if (cancelled) return;
@@ -87,17 +81,23 @@ export default function Compare({
     return () => {
       cancelled = true;
     };
-  }, [systemA, systemB, selectedModel, viewMode]);
+  }, [systemA, systemB, selectedModel]);
 
   // A single shared column order (System A's natural order, then any B-only
   // slots) so System A, System B and the difference line up home-by-home.
-  const { columnsA, columnsB, columnsDiff, colCount } = useMemo(() => {
+  const { columnsA, columnsB, columnsDiff, colCount, matrixSlots } = useMemo(() => {
     if (!dataA) {
-      return { columnsA: [], columnsB: [], columnsDiff: [], colCount: 0 };
+      return {
+        columnsA: [],
+        columnsB: [],
+        columnsDiff: [],
+        colCount: 0,
+        matrixSlots: [],
+      };
     }
 
-    const mapA = featuresBySlot(dataA, viewMode, numStates);
-    const mapB = dataB ? featuresBySlot(dataB, viewMode, numStates) : new Map();
+    const mapA = featuresBySlot(dataA, numStates);
+    const mapB = dataB ? featuresBySlot(dataB, numStates) : new Map();
     const tKeys = transitionKeys(numStates);
 
     const slots = [];
@@ -141,8 +141,18 @@ export default function Compare({
       cD.push({ stateVals: stateDiff, transitionVals: transitionDiff });
     }
 
-    return { columnsA: cA, columnsB: cB, columnsDiff: cD, colCount: slots.length };
-  }, [dataA, dataB, viewMode, numStates]);
+    return {
+      columnsA: cA,
+      columnsB: cB,
+      columnsDiff: cD,
+      colCount: slots.length,
+      matrixSlots: slots,
+    };
+  }, [dataA, dataB, numStates]);
+
+  useEffect(() => {
+    onSlotsChange?.(matrixSlots);
+  }, [matrixSlots, onSlotsChange]);
 
   // reset the shared window to cover all trajectories whenever the data changes
   useEffect(() => {

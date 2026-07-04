@@ -1,3 +1,5 @@
+import { slotKey } from './slotKey';
+
 export const CHART_MARGIN = { top: 12, right: 16, bottom: 36, left: 68 };
 export const X_MAX = 8000;
 export const X_TICK_STEP = 2000;
@@ -167,4 +169,81 @@ export function drawSelectionBand(ctx, width, startIdx, endIdx, count) {
   ctx.lineTo(M.left + plotW, yTop + 0.5);
   ctx.stroke();
   ctx.restore();
+}
+
+function latestTrajectoryForSlot(originalRows, slot) {
+  if (!originalRows?.length || !slot) return null;
+  let best = null;
+  for (const row of originalRows) {
+    if (slotKey(row.name) !== slot) continue;
+    if (!best || row.startTime > best.startTime) best = row;
+  }
+  return best;
+}
+
+function latestTrajectoryInSlotRange(originalRows, matrixSlots, startCol, endCol) {
+  if (!originalRows?.length || !matrixSlots?.length) return null;
+  const a = Math.max(0, startCol);
+  const b = Math.min(matrixSlots.length - 1, endCol);
+  let best = null;
+  for (let c = a; c <= b; c++) {
+    const traj = latestTrajectoryForSlot(originalRows, matrixSlots[c]);
+    if (traj && (!best || traj.startTime > best.startTime)) best = traj;
+  }
+  return best;
+}
+
+function findPathSegmentForTrajectory(concatRows, trajectoryName) {
+  if (!concatRows?.length || !trajectoryName) return null;
+  for (let i = 0; i < concatRows.length; i++) {
+    for (const seg of concatRows[i].segments || []) {
+      if (seg.name === trajectoryName) return { pathIndex: i, segment: seg };
+    }
+  }
+  return null;
+}
+
+// In concatenated view, map matrix columns to a single path row: the path that
+// contains the latest-in-time original trajectory for the slot (or brush range).
+export function drawConcatenatedSelectionBand(
+  ctx,
+  width,
+  concatRows,
+  originalRows,
+  matrixSlots,
+  startCol,
+  endCol
+) {
+  const traj = latestTrajectoryInSlotRange(
+    originalRows,
+    matrixSlots,
+    startCol,
+    endCol
+  );
+  if (!traj) return;
+  const hit = findPathSegmentForTrajectory(concatRows, traj.name);
+  if (!hit) return;
+  drawSelectionBand(ctx, width, hit.pathIndex, hit.pathIndex, concatRows.length);
+}
+
+export function drawConcatenatedHoverCrosshair(
+  ctx,
+  width,
+  concatRows,
+  originalRows,
+  matrixSlots,
+  hoverCol
+) {
+  const slot = matrixSlots?.[hoverCol];
+  const traj = latestTrajectoryForSlot(originalRows, slot);
+  if (!traj) return;
+  const hit = findPathSegmentForTrajectory(concatRows, traj.name);
+  if (!hit) return;
+  const len =
+    hit.segment.length ??
+    (hit.segment.states ? hit.segment.states.length : 0);
+  drawHoverCrosshair(ctx, width, hit.pathIndex, concatRows.length, {
+    t0: hit.segment.concatStart,
+    t1: hit.segment.concatStart + len,
+  });
 }
