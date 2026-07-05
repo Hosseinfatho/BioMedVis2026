@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect, useMemo, useCallback } from 'react';
+import { aggregateRateFromWindow, diffRateMatrices } from '../../utils/computeTransitionFeatures';
 import RatioMatrix from './RatioMatrix';
 import RateMatrix from './RateMatrix';
 import { LABEL_W, RIGHT_PAD } from './layout';
@@ -15,6 +16,12 @@ export default function InteractiveMatrix({
   onSelectionChange,
   hoverIndex,
   onHoverChange,
+  trajectoryRows,
+  trajectoryRowsB,
+  matrixSlots,
+  rateMode = 'absolute',
+  showRate = true,
+  showRateTitle = false,
 }) {
   const numCols = columns.length;
   const plotRef = useRef(null);
@@ -116,33 +123,36 @@ export default function InteractiveMatrix({
     dragRef.current = { mode: 'right', anchorCol: c, origStart: c, origEnd: c };
   };
 
-  const { stateAvg, transAvg } = useMemo(() => {
-    const n = numStates;
-    const sAvg = new Array(n).fill(0);
-    const tAvg = Array.from({ length: n }, () => new Array(n).fill(0));
-    const a = Math.max(0, sel.start);
-    const b = Math.min(numCols - 1, sel.end);
-    const cnt = b >= a ? b - a + 1 : 0;
-    if (cnt > 0) {
-      for (let c = a; c <= b; c++) {
-        const col = columns[c];
-        for (let s = 0; s < n; s++) sAvg[s] += col.stateVals[s] || 0;
-        for (let i = 0; i < n; i++) {
-          for (let j = 0; j < n; j++) {
-            if (i !== j) tAvg[i][j] += col.transitionVals[`${i}->${j}`] || 0;
-          }
-        }
-      }
-      for (let s = 0; s < n; s++) sAvg[s] /= cnt;
-      for (let i = 0; i < n; i++)
-        for (let j = 0; j < n; j++) tAvg[i][j] /= cnt;
-    }
-    return { stateAvg: sAvg, transAvg: tAvg };
-  }, [columns, sel, numStates, numCols]);
+  const winStart = selection?.start ?? 0;
+  const winEnd = selection?.end ?? Math.max(0, numCols - 1);
 
-  const selCount = numCols > 0 ? sel.end - sel.start + 1 : 0;
-  const left = LABEL_W + sel.start * colW;
-  const wsel = (sel.end - sel.start + 1) * colW;
+  const rateA = useMemo(
+    () =>
+      aggregateRateFromWindow(winStart, winEnd, numStates, {
+        allRows: trajectoryRows,
+        matrixSlots,
+      }),
+    [winStart, winEnd, numStates, trajectoryRows, matrixSlots]
+  );
+
+  const rateB = useMemo(
+    () =>
+      rateMode === 'diff' && trajectoryRowsB
+        ? aggregateRateFromWindow(winStart, winEnd, numStates, {
+            allRows: trajectoryRowsB,
+            matrixSlots,
+          })
+        : null,
+    [winStart, winEnd, numStates, trajectoryRowsB, matrixSlots, rateMode]
+  );
+
+  const rate =
+    rateMode === 'diff' && rateB
+      ? diffRateMatrices(rateA, rateB, numStates)
+      : rateA;
+
+  const left = LABEL_W + winStart * colW;
+  const wsel = (winEnd - winStart + 1) * colW;
 
   return (
     <div className="interactive-matrix">
@@ -184,14 +194,33 @@ export default function InteractiveMatrix({
           )}
         </div>
       </div>
-      <div className="im-rate-matrix">
-        <RateMatrix
-          stateAvg={stateAvg}
-          transAvg={transAvg}
-          numStates={numStates}
-          count={selCount}
-        />
-      </div>
+      {showRate && (
+        <div className="im-rate-matrix">
+          <RateMatrix
+            mode={rateMode}
+            showTitle={showRateTitle}
+            stateAvg={rate.stateAvg}
+            stateCounts={rate.stateCounts}
+            transAvg={rate.transAvg}
+            transCounts={rate.transCounts}
+            stateAvgA={rate.stateAvgA}
+            stateAvgB={rate.stateAvgB}
+            stateCountsA={rate.stateCountsA}
+            stateCountsB={rate.stateCountsB}
+            transAvgA={rate.transAvgA}
+            transAvgB={rate.transAvgB}
+            countsA={rate.countsA}
+            countsB={rate.countsB}
+            totalChanges={rateMode === 'diff' ? undefined : rate.totalChanges}
+            totalFrames={rateMode === 'diff' ? undefined : rate.totalFrames}
+            totalFramesA={rate.totalFramesA}
+            totalFramesB={rate.totalFramesB}
+            totalChangesA={rate.totalChangesA}
+            totalChangesB={rate.totalChangesB}
+            numStates={numStates}
+          />
+        </div>
+      )}
     </div>
   );
 }

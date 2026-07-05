@@ -12,10 +12,21 @@ function featuresBySlot(rows, numStates) {
   const map = new Map();
   rows.forEach((row) => {
     const key = slotKey(row.name);
-    if (map.has(key)) return;
-    map.set(key, computeTrajectoryFeatures(getRowStates(row, 'original'), numStates));
+    const prev = map.get(key);
+    if (!prev || row.startTime > prev.startTime) {
+      const states = getRowStates(row, 'original');
+      map.set(key, {
+        startTime: row.startTime,
+        features: computeTrajectoryFeatures(states, numStates),
+        states,
+      });
+    }
   });
-  return map;
+  const out = new Map();
+  for (const [key, { features, states }] of map) {
+    out.set(key, { ...features, states });
+  }
+  return out;
 }
 
 function transitionKeys(numStates) {
@@ -28,7 +39,14 @@ function transitionKeys(numStates) {
   return keys;
 }
 
-const EMPTY = { stateRatios: [], transitionRatios: {} };
+const EMPTY = {
+  stateRatios: [],
+  transitionRatios: {},
+  stateCounts: [],
+  transitionCounts: {},
+  total: 0,
+  totalTransitions: 0,
+};
 
 export default function Compare({
   selectedModel,
@@ -123,8 +141,24 @@ export default function Compare({
       const a = mapA.get(slot) || EMPTY;
       const b = mapB.get(slot) || EMPTY;
 
-      cA.push({ stateVals: a.stateRatios, transitionVals: a.transitionRatios });
-      cB.push({ stateVals: b.stateRatios, transitionVals: b.transitionRatios });
+      cA.push({
+        stateVals: a.stateRatios,
+        transitionVals: a.transitionRatios,
+        stateCounts: a.stateCounts,
+        transitionCounts: a.transitionCounts,
+        totalFrames: a.total,
+        totalTransitions: a.totalTransitions,
+        states: a.states,
+      });
+      cB.push({
+        stateVals: b.stateRatios,
+        transitionVals: b.transitionRatios,
+        stateCounts: b.stateCounts,
+        transitionCounts: b.transitionCounts,
+        totalFrames: b.total,
+        totalTransitions: b.totalTransitions,
+        states: b.states,
+      });
 
       const stateDiff = [];
       for (let s = 0; s < numStates; s++) {
@@ -213,6 +247,9 @@ export default function Compare({
             onSelectionChange={onSelectionChange}
             hoverIndex={hoverIndex}
             onHoverChange={onHoverChange}
+            trajectoryRows={dataA}
+            matrixSlots={matrixSlots}
+            showRateTitle
           />
         </>
       )}
@@ -231,6 +268,8 @@ export default function Compare({
             onSelectionChange={onSelectionChange}
             hoverIndex={hoverIndex}
             onHoverChange={onHoverChange}
+            trajectoryRows={dataB}
+            matrixSlots={matrixSlots}
           />
 
           <div className="compare-title">
@@ -243,6 +282,10 @@ export default function Compare({
             onSelectionChange={onSelectionChange}
             hoverIndex={hoverIndex}
             onHoverChange={onHoverChange}
+            trajectoryRows={dataA}
+            trajectoryRowsB={dataB}
+            matrixSlots={matrixSlots}
+            rateMode="diff"
           />
         </>
       )}

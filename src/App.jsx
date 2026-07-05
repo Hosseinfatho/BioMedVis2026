@@ -79,17 +79,19 @@ export default function App() {
         matrixSlots={matrixSlots}
       />
 
-      <Compare
-        selectedModel={selectedModel}
-        numStates={numStates}
-        defaultA={selectedSystems[0]}
-        defaultB={selectedSystems[1]}
-        selection={selection}
-        onSelectionChange={setSelection}
-        hoverIndex={hoverIndex}
-        onHoverChange={setHoverIndex}
-        onSlotsChange={setMatrixSlots}
-      />
+      {generated && (
+        <Compare
+          selectedModel={selectedModel}
+          numStates={numStates}
+          defaultA={selectedSystems[0]}
+          defaultB={selectedSystems[1]}
+          selection={selection}
+          onSelectionChange={setSelection}
+          hoverIndex={hoverIndex}
+          onHoverChange={setHoverIndex}
+          onSlotsChange={setMatrixSlots}
+        />
+      )}
     </div>
   );
 }
