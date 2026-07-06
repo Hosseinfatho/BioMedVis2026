@@ -13,14 +13,26 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [generated, setGenerated] = useState(false);
-  // trajectory window shared between the compare matrices and the charts
   const [selection, setSelection] = useState(null);
-  // hovered trajectory column, highlighted as a crosshair on the charts
   const [hoverIndex, setHoverIndex] = useState(null);
   const [matrixSlots, setMatrixSlots] = useState([]);
   const [activeMotif, setActiveMotif] = useState(null);
+  const [hoveredMotif, setHoveredMotif] = useState(null);
 
   const numStates = MODELS[selectedModel].numStates;
+
+  const handleActiveMotifChange = useCallback((motif) => {
+    setActiveMotif(motif);
+    setHoveredMotif(null);
+  }, []);
+
+  const handleMotifHoverChange = useCallback((systemId, occurrenceIndex) => {
+    if (occurrenceIndex == null) {
+      setHoveredMotif(null);
+      return;
+    }
+    setHoveredMotif({ systemId, occurrenceIndex });
+  }, []);
 
   const handleGenerate = useCallback(async () => {
     if (!selectedSystems.length) return;
@@ -79,6 +91,8 @@ export default function App() {
         hoverIndex={hoverIndex}
         matrixSlots={matrixSlots}
         activeMotif={activeMotif}
+        hoveredMotif={hoveredMotif}
+        onMotifHoverChange={handleMotifHoverChange}
       />
 
       {generated && (
@@ -93,7 +107,9 @@ export default function App() {
           onHoverChange={setHoverIndex}
           onSlotsChange={setMatrixSlots}
           activeMotif={activeMotif}
-          onActiveMotifChange={setActiveMotif}
+          onActiveMotifChange={handleActiveMotifChange}
+          hoveredMotif={hoveredMotif}
+          onMotifHoverChange={handleMotifHoverChange}
         />
       )}
     </div>

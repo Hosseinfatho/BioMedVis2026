@@ -1,6 +1,14 @@
 import { slotKey } from './slotKey';
 import { MOTIF_BUNDLE_COLORS } from './motifs';
 
+function hexToRgba(hex, alpha) {
+  const h = hex.replace('#', '');
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
 export const CHART_MARGIN = { top: 12, right: 16, bottom: 36, left: 68 };
 export const X_MAX = 8000;
 export const X_TICK_STEP = 2000;
@@ -249,97 +257,231 @@ export function drawConcatenatedHoverCrosshair(
   });
 }
 
-// Draw each complete motif as one bundle: connector in motif order + step bands.
-export function drawAllMotifBundles(ctx, x, rows, occurrences, getRowY, rowPx = ROW_PX) {
-  if (!occurrences?.length || !rows?.length) return;
+export function makeChartXScale(width) {
+  const M = CHART_MARGIN;
+  const plotW = width - M.left - M.right;
+  return (t) => M.left + (t / X_MAX) * plotW;
+}
 
-  const rowByName = new Map(rows.map((r, i) => [r.name, i]));
-  const bundleColors = MOTIF_BUNDLE_COLORS;
+function buildMotifOccurrencePoints(occ, rows, x, getRowY, rowPx, resolveStep, rowByName) {
+  const points = [];
 
-  for (let occIdx = 0; occIdx < occurrences.length; occIdx++) {
+  for (let stepIdx = 0; stepIdx < occ.steps.length; stepIdx++) {
+    const step = occ.steps[stepIdx];
+    let rowIdx;
+    let bandCenter;
+
+    if (resolveStep) {
+      const pos = resolveStep(step);
+      if (!pos) return null;
+      rowIdx = pos.rowIdx;
+      bandCenter = pos.time;
+    } else {
+      rowIdx = rowByName.get(step.rowName);
+      if (rowIdx === undefined) return null;
+      bandCenter = step.globalTime;
+    }
+
+    const y = getRowY(rowIdx);
+    const bandLeft = bandCenter - 1;
+    const bandRight = bandCenter + 1;
+    const x0 = x(Math.min(bandLeft, X_MAX));
+    const x1 = x(Math.min(bandRight, X_MAX));
+    const midT = bandCenter - 0.5;
+    points.push({
+      x0,
+      x1,
+      y,
+      px: x(Math.min(midT, X_MAX)),
+      py: y + rowPx / 2,
+      stepIdx,
+      step,
+    });
+  }
+
+  return points;
+}
+
+function isValidMotifOccurrenceChain(steps) {
+  for (let i = 1; i < steps.length; i++) {
+    const prev = steps[i - 1];
+    const cur = steps[i];
+    if (cur.globalTime <= prev.globalTime) return false;
+    if (cur.trajectoryIndex < prev.trajectoryIndex) return false;
+  }
+  return true;
+}
+
+export function hitTestMotifBundles(
+  mx,
+  my,
+  occurrences,
+  x,
+  getRowY,
+  rowPx = ROW_PX,
+  resolveStep = null,
+  rows = []
+) {
+  if (!occurrences?.length) return null;
+
+  const rowByName = resolveStep ? null : new Map(rows.map((r, i) => [r.name, i]));
+  const pad = 6;
+  const hitR = 9;
+
+  for (let occIdx = occurrences.length - 1; occIdx >= 0; occIdx--) {
     const occ = occurrences[occIdx];
-    const color = bundleColors[occIdx % bundleColors.length];
+    if (!isValidMotifOccurrenceChain(occ.steps)) continue;
 
-    let valid = true;
-    for (let i = 1; i < occ.steps.length; i++) {
-      const prev = occ.steps[i - 1];
-      const cur = occ.steps[i];
-      if (cur.globalTime <= prev.globalTime) {
-        valid = false;
-        break;
-      }
-      if (cur.trajectoryIndex <= prev.trajectoryIndex) {
-        valid = false;
-        break;
-      }
-    }
-    if (!valid) continue;
-
-    const points = [];
-    for (let stepIdx = 0; stepIdx < occ.steps.length; stepIdx++) {
-      const step = occ.steps[stepIdx];
-      const rowIdx = rowByName.get(step.rowName);
-      if (rowIdx === undefined) {
-        valid = false;
-        break;
-      }
-
-      const y = getRowY(rowIdx);
-      const bandLeft = step.globalTime - 1;
-      const bandRight = step.globalTime + 1;
-      const x0 = x(Math.min(bandLeft, X_MAX));
-      const x1 = x(Math.min(bandRight, X_MAX));
-      const midT = step.globalTime - 0.5;
-      points.push({
-        x0,
-        x1,
-        y,
-        px: x(Math.min(midT, X_MAX)),
-        py: y + rowPx / 2,
-        stepIdx,
-        step,
-      });
-    }
-
-    if (!valid || points.length !== occ.steps.length) continue;
-
-    // Connector underneath bands — follows motif step order (2→1 then 1→0).
-    if (points.length >= 2) {
-      ctx.save();
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 3;
-      ctx.setLineDash([6, 4]);
-      ctx.beginPath();
-      ctx.moveTo(points[0].px, points[0].py);
-      for (let i = 1; i < points.length; i++) {
-        ctx.lineTo(points[i].px, points[i].py);
-      }
-      ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.restore();
-    }
+    const points = buildMotifOccurrencePoints(
+      occ,
+      rows,
+      x,
+      getRowY,
+      rowPx,
+      resolveStep,
+      rowByName
+    );
+    if (!points || points.length !== occ.steps.length) continue;
 
     for (const p of points) {
       const w = Math.max(2, p.x1 - p.x0);
-
-      ctx.save();
-      ctx.fillStyle = 'rgba(255, 193, 7, 0.55)';
-      ctx.fillRect(p.x0, p.y - 2, w, rowPx + 4);
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 2;
-      ctx.strokeRect(p.x0 + 0.5, p.y - 1.5, w - 1, rowPx + 3);
-      ctx.restore();
-
-      ctx.save();
-      ctx.fillStyle = color;
-      ctx.font = 'bold 9px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'bottom';
-      ctx.fillText(String(p.stepIdx + 1), p.px, p.y - 3);
-      ctx.beginPath();
-      ctx.arc(p.px, p.py, 4, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
+      if (
+        mx >= p.x0 - pad &&
+        mx <= p.x0 + w + pad &&
+        my >= p.y - 2 - pad &&
+        my <= p.y + rowPx + 4 + pad
+      ) {
+        return occIdx;
+      }
+      const dx = mx - p.px;
+      const dy = my - p.py;
+      if (dx * dx + dy * dy <= hitR * hitR) return occIdx;
     }
+  }
+
+  return null;
+}
+
+function drawOneMotifBundle(ctx, points, color, rowPx, { hovered = false, dimmed = false } = {}) {
+  const fillAlpha = hovered ? 0.88 : dimmed ? 0.14 : 0.55;
+  const strokeW = hovered ? 3.5 : dimmed ? 1 : 2.5;
+  const connectorW = hovered ? 4.5 : dimmed ? 1.5 : 3;
+  const dotR = (isEnd, isStart) => {
+    if (hovered) return isEnd || isStart ? 6.5 : 5.5;
+    if (dimmed) return isEnd || isStart ? 3 : 2.5;
+    return isEnd || isStart ? 5 : 4;
+  };
+
+  ctx.save();
+  if (dimmed) ctx.globalAlpha = 0.22;
+  else if (hovered) ctx.globalAlpha = 1;
+
+  if (points.length >= 2) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = connectorW;
+    ctx.setLineDash(hovered ? [] : [6, 4]);
+    ctx.beginPath();
+    ctx.moveTo(points[0].px, points[0].py);
+    for (let i = 1; i < points.length; i++) {
+      ctx.lineTo(points[i].px, points[i].py);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  for (const p of points) {
+    const w = Math.max(2, p.x1 - p.x0);
+    const isStart = p.stepIdx === 0;
+    const isEnd = p.stepIdx === points.length - 1;
+    const edgeW = hovered && (isEnd || isStart) ? 3.5 : isEnd || isStart ? strokeW : strokeW - 0.5;
+
+    ctx.fillStyle = hexToRgba(color, fillAlpha);
+    ctx.fillRect(p.x0, p.y - 2, w, rowPx + 4);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = edgeW;
+    ctx.strokeRect(p.x0 + 0.5, p.y - 1.5, w - 1, rowPx + 3);
+
+    ctx.fillStyle = color;
+    ctx.font = hovered ? 'bold 10px sans-serif' : 'bold 9px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText(String(p.stepIdx + 1), p.px, p.y - 3);
+    ctx.beginPath();
+    ctx.arc(p.px, p.py, dotR(isEnd, isStart), 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.restore();
+}
+
+function findConcatPositionForStep(concatRows, step) {
+  if (!concatRows?.length || !step?.rowName) return null;
+  const frame = step.frame;
+  if (frame == null) return null;
+
+  for (let pathIndex = 0; pathIndex < concatRows.length; pathIndex++) {
+    for (const seg of concatRows[pathIndex].segments || []) {
+      if (seg.name !== step.rowName) continue;
+      const end = seg.frameEnd ?? seg.concatEnd;
+      if (frame > seg.frameStart && frame <= end) {
+        return {
+          rowIdx: pathIndex,
+          time: seg.concatStart + (frame - seg.frameStart),
+        };
+      }
+    }
+  }
+  return null;
+}
+
+export function makeConcatStepResolver(concatRows) {
+  return (step) => findConcatPositionForStep(concatRows, step);
+}
+
+// Draw each complete motif as one bundle: connector in motif order + step bands.
+export function drawAllMotifBundles(
+  ctx,
+  x,
+  rows,
+  occurrences,
+  getRowY,
+  rowPx = ROW_PX,
+  resolveStep = null,
+  hoveredOccIdx = null
+) {
+  if (!occurrences?.length || !rows?.length) return;
+
+  const rowByName = resolveStep ? null : new Map(rows.map((r, i) => [r.name, i]));
+  const bundleColors = MOTIF_BUNDLE_COLORS;
+  const dimOthers = hoveredOccIdx != null;
+
+  const drawOrder = occurrences.map((_, i) => i);
+  if (hoveredOccIdx != null) {
+    drawOrder.sort((a, b) => {
+      if (a === hoveredOccIdx) return 1;
+      if (b === hoveredOccIdx) return -1;
+      return a - b;
+    });
+  }
+
+  for (const occIdx of drawOrder) {
+    const occ = occurrences[occIdx];
+    if (!isValidMotifOccurrenceChain(occ.steps)) continue;
+
+    const points = buildMotifOccurrencePoints(
+      occ,
+      rows,
+      x,
+      getRowY,
+      rowPx,
+      resolveStep,
+      rowByName
+    );
+    if (!points || points.length !== occ.steps.length) continue;
+
+    const color = bundleColors[occIdx % bundleColors.length];
+    const hovered = occIdx === hoveredOccIdx;
+    const dimmed = dimOthers && !hovered;
+    drawOneMotifBundle(ctx, points, color, rowPx, { hovered, dimmed });
   }
 }

@@ -15,6 +15,8 @@ export default function ComparisonRow({
   hoverIndex,
   matrixSlots,
   activeMotif,
+  hoveredMotif,
+  onMotifHoverChange,
 }) {
   const searchRows =
     viewMode === 'concatenated' && originalRows?.length ? originalRows : rows;
@@ -28,6 +30,9 @@ export default function ComparisonRow({
       (row) => row.states || []
     );
   }, [activeMotif, searchRows, matrixSlots]);
+
+  const hoveredMotifOccIdx =
+    hoveredMotif?.systemId === systemId ? hoveredMotif.occurrenceIndex : null;
 
   return (
     <div className="comparison-row">
@@ -47,6 +52,9 @@ export default function ComparisonRow({
             hoverIndex={hoverIndex}
             matrixSlots={matrixSlots}
             globalOccurrences={globalOccurrences}
+            systemId={systemId}
+            hoveredMotifOccIdx={hoveredMotifOccIdx}
+            onMotifHoverChange={onMotifHoverChange}
           />
         </div>
         <div className="panel-half panel-state">
@@ -59,6 +67,9 @@ export default function ComparisonRow({
             hoverIndex={hoverIndex}
             matrixSlots={matrixSlots}
             globalOccurrences={globalOccurrences}
+            systemId={systemId}
+            hoveredMotifOccIdx={hoveredMotifOccIdx}
+            onMotifHoverChange={onMotifHoverChange}
           />
         </div>
       </div>

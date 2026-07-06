@@ -1,5 +1,6 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import { getMarkovStateColor } from '../utils/constants';
+import { useMotifChartInteraction } from '../hooks/useMotifChartInteraction';
 import {
   CHART_HEIGHT,
   CHART_MARGIN,
@@ -12,6 +13,7 @@ import {
   drawConcatenatedSelectionBand,
   drawConcatenatedHoverCrosshair,
   drawAllMotifBundles,
+  makeConcatStepResolver,
   rowTimeBounds,
 } from '../utils/chartLayout';
 
@@ -75,10 +77,23 @@ export default function State({
   hoverIndex = null,
   matrixSlots = [],
   globalOccurrences = null,
+  systemId = null,
+  hoveredMotifOccIdx = null,
+  onMotifHoverChange = null,
 }) {
   const canvasRef = useRef(null);
   const wrapRef = useRef(null);
   const [width, setWidth] = useState(640);
+
+  const { handleMouseMove, handleMouseLeave, motifHoverable } =
+    useMotifChartInteraction({
+      width,
+      rows,
+      viewMode,
+      globalOccurrences,
+      systemId,
+      onMotifHoverChange,
+    });
 
   useEffect(() => {
     const el = wrapRef.current;
@@ -113,9 +128,19 @@ export default function State({
       drawConcatenatedStates(ctx, x, rows);
     } else {
       drawOriginalStates(ctx, x, rows);
-      if (globalOccurrences?.length) {
-        drawAllMotifBundles(ctx, x, rows, globalOccurrences, rowY, ROW_PX);
-      }
+    }
+
+    if (globalOccurrences?.length) {
+      drawAllMotifBundles(
+        ctx,
+        x,
+        rows,
+        globalOccurrences,
+        rowY,
+        ROW_PX,
+        viewMode === 'concatenated' ? makeConcatStepResolver(rows) : null,
+        hoveredMotifOccIdx
+      );
     }
 
     ctx.fillStyle = '#555';
@@ -168,7 +193,7 @@ export default function State({
         );
       }
     }
-  }, [rows, width, viewMode, originalRows, selection, hoverIndex, matrixSlots, globalOccurrences]);
+  }, [rows, width, viewMode, originalRows, selection, hoverIndex, matrixSlots, globalOccurrences, hoveredMotifOccIdx]);
 
   useEffect(() => {
     draw();
@@ -180,7 +205,12 @@ export default function State({
 
   return (
     <>
-      <div className="state-rows" ref={wrapRef}>
+      <div
+        className={`state-rows${motifHoverable ? ' motif-hoverable' : ''}`}
+        ref={wrapRef}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
+      >
         <canvas ref={canvasRef} />
       </div>
       <StateLegend numStates={numStates} />

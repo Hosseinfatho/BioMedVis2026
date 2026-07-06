@@ -304,11 +304,18 @@ export function motifTransitionRowIndices(motif, numStates) {
 }
 
 export const MOTIF_BUNDLE_COLORS = [
-  '#e65100',
-  '#1565c0',
-  '#6a1b9a',
-  '#2e7d32',
-  '#c62828',
+  '#8dd3c7',
+  '#ffffb3',
+  '#bebada',
+  '#fb8072',
+  '#80b1d3',
+  '#fdb462',
+  '#b3de69',
+  '#fccde5',
+  '#d9d9d9',
+  '#bc80bd',
+  '#ccebc5',
+  '#ffed6f',
 ];
 
 export function computeMotifMatrixHighlights(motif, numStates, occurrences) {
@@ -328,9 +335,24 @@ export function computeMotifMatrixHighlights(motif, numStates, occurrences) {
     }
 
     if (cells.length !== occ.steps.length) continue;
+    if (cells.length !== motif.transitions.length) continue;
 
-    // Sankey path starts at the first transition (e.g. 0→1) and links each next one.
-    const path = cells.map((cell) => ({ ...cell, kind: 'transition' }));
+    const [firstFrom, firstTo] = motif.transitions[0];
+    const [lastFrom, lastTo] = motif.transitions[motif.transitions.length - 1];
+    const firstRow = featureRowIndexForTransition(firstFrom, firstTo, numStates);
+    const lastRow = featureRowIndexForTransition(lastFrom, lastTo, numStates);
+    if (firstRow < 0 || lastRow < 0) continue;
+    if (cells[0].row !== firstRow || cells[cells.length - 1].row !== lastRow) {
+      continue;
+    }
+
+    // Path: first transition (e.g. 3→1) … last transition (e.g. S2→S3).
+    const path = cells.map((cell, i) => ({
+      ...cell,
+      kind: 'transition',
+      isStart: i === 0,
+      isEnd: i === cells.length - 1,
+    }));
 
     bundles.push({ occurrenceIndex: occIdx, cells, path });
   }

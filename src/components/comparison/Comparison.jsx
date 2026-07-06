@@ -8,6 +8,8 @@ export default function Comparison({
   hoverIndex,
   matrixSlots,
   activeMotif,
+  hoveredMotif,
+  onMotifHoverChange,
 }) {
   if (!systemData.length) return null;
 
@@ -26,6 +28,8 @@ export default function Comparison({
           hoverIndex={hoverIndex}
           matrixSlots={matrixSlots}
           activeMotif={activeMotif}
+          hoveredMotif={hoveredMotif}
+          onMotifHoverChange={onMotifHoverChange}
         />
       ))}
     </div>

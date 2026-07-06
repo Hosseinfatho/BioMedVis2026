@@ -783,6 +783,11 @@ body {
   width: 100%;
 }
 
+.trajectory-rows.motif-hoverable,
+.state-rows.motif-hoverable {
+  cursor: crosshair;
+}
+
 .trajectory-rows.empty,
 .state-rows.empty {
   padding: 40px;

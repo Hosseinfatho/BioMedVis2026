@@ -1,5 +1,6 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import { getEpochColor, EPOCH_COLORS } from '../utils/constants';
+import { useMotifChartInteraction } from '../hooks/useMotifChartInteraction';
 import {
   CHART_HEIGHT,
   ROW_PX,
@@ -10,6 +11,7 @@ import {
   drawConcatenatedSelectionBand,
   drawConcatenatedHoverCrosshair,
   drawAllMotifBundles,
+  makeConcatStepResolver,
   rowTimeBounds,
 } from '../utils/chartLayout';
 
@@ -64,10 +66,23 @@ export default function TrajectoryRows({
   hoverIndex = null,
   matrixSlots = [],
   globalOccurrences = null,
+  systemId = null,
+  hoveredMotifOccIdx = null,
+  onMotifHoverChange = null,
 }) {
   const canvasRef = useRef(null);
   const wrapRef = useRef(null);
   const [width, setWidth] = useState(640);
+
+  const { handleMouseMove, handleMouseLeave, motifHoverable } =
+    useMotifChartInteraction({
+      width,
+      rows,
+      viewMode,
+      globalOccurrences,
+      systemId,
+      onMotifHoverChange,
+    });
 
   useEffect(() => {
     const el = wrapRef.current;
@@ -107,9 +122,19 @@ export default function TrajectoryRows({
       drawConcatenatedEpoch(ctx, x, rows);
     } else {
       drawOriginalEpoch(ctx, x, rows);
-      if (globalOccurrences?.length) {
-        drawAllMotifBundles(ctx, x, rows, globalOccurrences, rowY, ROW_PX);
-      }
+    }
+
+    if (globalOccurrences?.length) {
+      drawAllMotifBundles(
+        ctx,
+        x,
+        rows,
+        globalOccurrences,
+        rowY,
+        ROW_PX,
+        viewMode === 'concatenated' ? makeConcatStepResolver(rows) : null,
+        hoveredMotifOccIdx
+      );
     }
 
     if (selection) {
@@ -148,7 +173,7 @@ export default function TrajectoryRows({
         );
       }
     }
-  }, [rows, width, viewMode, originalRows, selection, hoverIndex, matrixSlots, globalOccurrences]);
+  }, [rows, width, viewMode, originalRows, selection, hoverIndex, matrixSlots, globalOccurrences, hoveredMotifOccIdx]);
 
   useEffect(() => {
     draw();
@@ -160,7 +185,12 @@ export default function TrajectoryRows({
 
   return (
     <>
-      <div className="trajectory-rows" ref={wrapRef}>
+      <div
+        className={`trajectory-rows${motifHoverable ? ' motif-hoverable' : ''}`}
+        ref={wrapRef}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
+      >
         <canvas ref={canvasRef} />
       </div>
       <EpochLegend />

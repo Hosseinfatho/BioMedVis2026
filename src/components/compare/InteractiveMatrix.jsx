@@ -5,9 +5,9 @@ import {
   findGlobalMotifOccurrences,
 } from '../../utils/motifs';
 import { rateAggregationWindow, visibleSelection } from '../../utils/matrixViewport';
-import RatioMatrix from './RatioMatrix';
+import RatioMatrix, { hitTestMotifBundlesOnMatrix } from './RatioMatrix';
 import RateMatrix from './RateMatrix';
-import { LABEL_W, COL_HEADER_H, RIGHT_PAD } from './layout';
+import { LABEL_W, COL_HEADER_H, TOP_PAD, ROW_H, RIGHT_PAD } from './layout';
 
 export default function InteractiveMatrix({
   columns,
@@ -21,6 +21,9 @@ export default function InteractiveMatrix({
   trajectoryRowsB,
   matrixSlots,
   activeMotif,
+  motifSystemId,
+  hoveredMotif,
+  onMotifHoverChange,
   viewStart,
   viewCount,
   onViewChange,
@@ -123,12 +126,6 @@ export default function InteractiveMatrix({
     };
   };
 
-  const reportHover = (e) => {
-    if (!onHoverChange || numCols === 0) return;
-    onHoverChange(colAt(e.clientX));
-  };
-  const clearHover = () => onHoverChange?.(null);
-
   const startNew = (e) => {
     if (e.target !== e.currentTarget) return;
     e.preventDefault();
@@ -215,10 +212,38 @@ export default function InteractiveMatrix({
     [activeMotif, numStates, globalOccurrences]
   );
 
+  const hoveredMotifOccIdx =
+    hoveredMotif?.systemId === motifSystemId
+      ? hoveredMotif.occurrenceIndex
+      : null;
+
+  const bodyTop = COL_HEADER_H + TOP_PAD;
+
   const cw =
     numCols > 0 && visibleCount > 0
       ? (plotW - LABEL_W - RIGHT_PAD) / visibleCount
       : 0;
+
+  const reportHover = (e) => {
+    if (onMotifHoverChange && motifBundles.length && motifSystemId) {
+      const rect = plotRef.current.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      const occIdx = hitTestMotifBundlesOnMatrix(mx, my, motifBundles, {
+        viewStart,
+        visibleCount,
+        colW: cw,
+        bodyTop,
+      });
+      onMotifHoverChange(motifSystemId, occIdx ?? null);
+    }
+    if (!onHoverChange || numCols === 0) return;
+    onHoverChange(colAt(e.clientX));
+  };
+  const clearHover = () => {
+    if (motifSystemId) onMotifHoverChange?.(motifSystemId, null);
+    onHoverChange?.(null);
+  };
 
   const visSel = visibleSelection(
     selection,
@@ -242,6 +267,7 @@ export default function InteractiveMatrix({
           columns={columns}
           numStates={numStates}
           motifBundles={motifBundles}
+          hoveredMotifOccIdx={hoveredMotifOccIdx}
           viewStart={viewStart}
           viewCount={visibleCount}
         />

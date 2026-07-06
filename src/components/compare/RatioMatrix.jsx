@@ -30,36 +30,83 @@ function cellCenter(localC, row, colW, bodyTop) {
 }
 
 // Filled Sankey-style ribbon between two matrix nodes.
-function drawSankeyRibbon(ctx, x0, y0, x1, y1, thickness, color) {
+function drawSankeyRibbon(
+  ctx,
+  x0,
+  y0,
+  x1,
+  y1,
+  thickness,
+  color,
+  { taperEnd = false, hovered = false, dimmed = false } = {}
+) {
   const mx = (x0 + x1) / 2;
-  const half = thickness / 2;
+  const halfStart = thickness / 2;
+  const halfEnd = taperEnd ? 0.75 : halfStart;
+  const fillAlpha = hovered ? 0.82 : dimmed ? 0.1 : 0.42;
+  const strokeAlpha = hovered ? 1 : dimmed ? 0.25 : 0.85;
 
-  ctx.fillStyle = hexToRgba(color, 0.42);
+  ctx.save();
+  if (dimmed) ctx.globalAlpha = 0.2;
+  else if (hovered) ctx.globalAlpha = 1;
+
+  ctx.fillStyle = hexToRgba(color, fillAlpha);
   ctx.beginPath();
-  ctx.moveTo(x0, y0 - half);
-  ctx.bezierCurveTo(mx, y0 - half, mx, y1 - half, x1, y1 - half);
-  ctx.lineTo(x1, y1 + half);
-  ctx.bezierCurveTo(mx, y1 + half, mx, y0 + half, x0, y0 + half);
+  ctx.moveTo(x0, y0 - halfStart);
+  ctx.bezierCurveTo(mx, y0 - halfStart, mx, y1 - halfEnd, x1, y1 - halfEnd);
+  ctx.lineTo(x1, y1 + halfEnd);
+  ctx.bezierCurveTo(mx, y1 + halfEnd, mx, y0 + halfStart, x0, y0 + halfStart);
   ctx.closePath();
   ctx.fill();
 
-  ctx.strokeStyle = hexToRgba(color, 0.85);
-  ctx.lineWidth = 1.25;
+  ctx.strokeStyle = hexToRgba(color, strokeAlpha);
+  ctx.lineWidth = hovered ? 2.25 : 1.25;
   ctx.stroke();
+  ctx.restore();
+}
+
+export function hitTestMotifBundlesOnMatrix(mx, my, bundles, layout) {
+  if (!bundles?.length) return null;
+  const { viewStart, visibleCount, colW, bodyTop, labelW = LABEL_W, rowH = ROW_H } =
+    layout;
+
+  for (let i = bundles.length - 1; i >= 0; i--) {
+    const bundle = bundles[i];
+    for (const cell of bundle.cells) {
+      const localC = cell.col - viewStart;
+      if (localC < 0 || localC >= visibleCount) continue;
+      const x0 = labelW + localC * colW;
+      const yTop = bodyTop + cell.row * rowH;
+      if (mx >= x0 && mx <= x0 + colW && my >= yTop && my <= yTop + rowH) {
+        return bundle.occurrenceIndex;
+      }
+    }
+  }
+  return null;
 }
 
 function drawMotifBundlesOnMatrix(
   ctx,
   bundles,
-  { viewStart, visibleCount, colW, bodyTop }
+  { viewStart, visibleCount, colW, bodyTop },
+  hoveredOccIdx = null
 ) {
   if (!bundles?.length || colW <= 0) return;
 
   const ribbonW = Math.max(4, Math.min(colW * 0.72, ROW_H * 1.1));
+  const dimOthers = hoveredOccIdx != null;
 
-  for (const bundle of bundles) {
+  const drawOrder = [...bundles].sort((a, b) => {
+    if (a.occurrenceIndex === hoveredOccIdx) return 1;
+    if (b.occurrenceIndex === hoveredOccIdx) return -1;
+    return a.occurrenceIndex - b.occurrenceIndex;
+  });
+
+  for (const bundle of drawOrder) {
     const color =
       MOTIF_BUNDLE_COLORS[bundle.occurrenceIndex % MOTIF_BUNDLE_COLORS.length];
+    const hovered = bundle.occurrenceIndex === hoveredOccIdx;
+    const dimmed = dimOthers && !hovered;
     const pathPoints = [];
 
     for (const node of bundle.path) {
@@ -74,31 +121,43 @@ function drawMotifBundlesOnMatrix(
     });
     if (!allVisible || pathPoints.length < 2) continue;
 
-    // Ribbons flow transition → transition; first segment starts at step 1 (e.g. 0→1).
     for (let i = 1; i < pathPoints.length; i++) {
       const a = pathPoints[i - 1];
       const b = pathPoints[i];
-      drawSankeyRibbon(ctx, a.x, a.y, b.x, b.y, ribbonW, color);
+      const isLastSeg = i === pathPoints.length - 1;
+      drawSankeyRibbon(ctx, a.x, a.y, b.x, b.y, ribbonW, color, {
+        taperEnd: isLastSeg,
+        hovered,
+        dimmed,
+      });
     }
 
+    const lastStepIdx = bundle.cells.length - 1;
     const transPoints = [];
     for (const cell of bundle.cells) {
       const localC = cell.col - viewStart;
       if (localC < 0 || localC >= visibleCount) continue;
 
+      const isStart = cell.stepIdx === 0;
+      const isEnd = cell.stepIdx === lastStepIdx;
       const { x, y } = cellCenter(localC, cell.row, colW, bodyTop);
       const x0 = LABEL_W + localC * colW;
       const yTop = bodyTop + cell.row * ROW_H;
-      transPoints.push({ x, y, localC, cell });
+      transPoints.push({ x, y, localC, cell, isStart, isEnd });
 
       ctx.save();
-      ctx.fillStyle = hexToRgba(color, 0.5);
+      if (dimmed) ctx.globalAlpha = 0.2;
+      else if (hovered) ctx.globalAlpha = 1;
+      ctx.fillStyle = hexToRgba(
+        color,
+        hovered ? 0.9 : dimmed ? 0.12 : isEnd || isStart ? 0.58 : 0.5
+      );
       ctx.fillRect(x0 + 1, yTop + 1, colW - 2, ROW_H - 2);
       ctx.strokeStyle = color;
-      ctx.lineWidth = 2;
+      ctx.lineWidth = hovered ? 3.5 : isEnd || isStart ? 2.5 : 2;
       ctx.strokeRect(x0 + 0.5, yTop + 0.5, colW - 1, ROW_H - 1);
-      ctx.fillStyle = '#fff';
-      ctx.font = 'bold 8px sans-serif';
+      ctx.fillStyle = hovered ? '#222' : '#fff';
+      ctx.font = hovered ? 'bold 9px sans-serif' : 'bold 8px sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(String(cell.stepIdx + 1), x, y);
@@ -106,13 +165,18 @@ function drawMotifBundlesOnMatrix(
     }
 
     for (const p of transPoints) {
+      const r = hovered ? (p.isEnd || p.isStart ? 6 : 4.5) : p.isEnd || p.isStart ? 5 : 3.5;
+      ctx.save();
+      if (dimmed) ctx.globalAlpha = 0.2;
+      else if (hovered) ctx.globalAlpha = 1;
       ctx.beginPath();
-      ctx.arc(p.x, p.y, 3.5, 0, Math.PI * 2);
+      ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
       ctx.fillStyle = color;
       ctx.fill();
-      ctx.strokeStyle = '#fff';
-      ctx.lineWidth = 1;
+      ctx.strokeStyle = hovered ? '#222' : '#fff';
+      ctx.lineWidth = hovered ? 2 : 1.5;
       ctx.stroke();
+      ctx.restore();
     }
   }
 }
@@ -122,6 +186,7 @@ export default function RatioMatrix({
   numStates,
   mode = 'intensity',
   motifBundles = [],
+  hoveredMotifOccIdx = null,
   viewStart = 0,
   viewCount,
 }) {
@@ -265,7 +330,7 @@ export default function RatioMatrix({
       visibleCount,
       colW,
       bodyTop,
-    });
+    }, hoveredMotifOccIdx);
   }, [
     totalCols,
     visibleCount,
@@ -276,6 +341,7 @@ export default function RatioMatrix({
     featureRows,
     mode,
     motifBundles,
+    hoveredMotifOccIdx,
     viewStart,
     bodyTop,
   ]);

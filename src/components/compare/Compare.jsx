@@ -70,6 +70,8 @@ export default function Compare({
   onSlotsChange,
   activeMotif,
   onActiveMotifChange,
+  hoveredMotif,
+  onMotifHoverChange,
 }) {
   const systemIds = Object.keys(SYSTEMS);
   const [systemA, setSystemA] = useState(defaultA || systemIds[0]);
@@ -325,6 +327,9 @@ export default function Compare({
             numStates={numStates}
             alignmentId={alignmentId}
             activeMotif={activeMotif}
+            motifSystemId={systemA}
+            hoveredMotif={hoveredMotif}
+            onMotifHoverChange={onMotifHoverChange}
             selection={selection}
             onSelectionChange={onSelectionChange}
             hoverIndex={hoverIndex}
@@ -351,6 +356,9 @@ export default function Compare({
             numStates={numStates}
             alignmentId={alignmentId}
             activeMotif={activeMotif}
+            motifSystemId={systemB}
+            hoveredMotif={hoveredMotif}
+            onMotifHoverChange={onMotifHoverChange}
             selection={selection}
             onSelectionChange={onSelectionChange}
             hoverIndex={hoverIndex}
@@ -370,6 +378,9 @@ export default function Compare({
             numStates={numStates}
             alignmentId={alignmentId}
             activeMotif={activeMotif}
+            motifSystemId="__diff__"
+            hoveredMotif={hoveredMotif}
+            onMotifHoverChange={onMotifHoverChange}
             selection={selection}
             onSelectionChange={onSelectionChange}
             hoverIndex={hoverIndex}
