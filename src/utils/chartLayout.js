@@ -1,4 +1,5 @@
 import { slotKey } from './slotKey';
+import { MOTIF_BUNDLE_COLORS } from './motifs';
 
 export const CHART_MARGIN = { top: 12, right: 16, bottom: 36, left: 68 };
 export const X_MAX = 8000;
@@ -253,7 +254,7 @@ export function drawAllMotifBundles(ctx, x, rows, occurrences, getRowY, rowPx = 
   if (!occurrences?.length || !rows?.length) return;
 
   const rowByName = new Map(rows.map((r, i) => [r.name, i]));
-  const bundleColors = ['#e65100', '#1565c0', '#6a1b9a', '#2e7d32', '#c62828'];
+  const bundleColors = MOTIF_BUNDLE_COLORS;
 
   for (let occIdx = 0; occIdx < occurrences.length; occIdx++) {
     const occ = occurrences[occIdx];

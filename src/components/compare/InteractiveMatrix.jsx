@@ -210,7 +210,7 @@ export default function InteractiveMatrix({
     );
   }, [activeMotif, motifSearchRows, matrixSlots]);
 
-  const { cells: highlightCells } = useMemo(
+  const { bundles: motifBundles } = useMemo(
     () => computeMotifMatrixHighlights(activeMotif, numStates, globalOccurrences),
     [activeMotif, numStates, globalOccurrences]
   );
@@ -241,7 +241,7 @@ export default function InteractiveMatrix({
         <RatioMatrix
           columns={columns}
           numStates={numStates}
-          highlightCells={highlightCells}
+          motifBundles={motifBundles}
           viewStart={viewStart}
           viewCount={visibleCount}
         />

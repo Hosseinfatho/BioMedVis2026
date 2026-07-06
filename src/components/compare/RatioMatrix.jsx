@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import { getMarkovStateColor } from '../../utils/constants';
 import { buildFeatureRows } from '../../utils/computeTransitionFeatures';
+import { MOTIF_BUNDLE_COLORS } from '../../utils/motifs';
 import {
   columnLabelStep,
   shouldDrawColumnLabel,
@@ -13,11 +14,114 @@ import {
 } from './glyphs';
 import { LABEL_W, COL_HEADER_H, TOP_PAD, RIGHT_PAD, ROW_H } from './layout';
 
+function hexToRgba(hex, alpha) {
+  const h = hex.replace('#', '');
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+function cellCenter(localC, row, colW, bodyTop) {
+  return {
+    x: LABEL_W + (localC + 0.5) * colW,
+    y: bodyTop + row * ROW_H + ROW_H / 2,
+  };
+}
+
+// Filled Sankey-style ribbon between two matrix nodes.
+function drawSankeyRibbon(ctx, x0, y0, x1, y1, thickness, color) {
+  const mx = (x0 + x1) / 2;
+  const half = thickness / 2;
+
+  ctx.fillStyle = hexToRgba(color, 0.42);
+  ctx.beginPath();
+  ctx.moveTo(x0, y0 - half);
+  ctx.bezierCurveTo(mx, y0 - half, mx, y1 - half, x1, y1 - half);
+  ctx.lineTo(x1, y1 + half);
+  ctx.bezierCurveTo(mx, y1 + half, mx, y0 + half, x0, y0 + half);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.strokeStyle = hexToRgba(color, 0.85);
+  ctx.lineWidth = 1.25;
+  ctx.stroke();
+}
+
+function drawMotifBundlesOnMatrix(
+  ctx,
+  bundles,
+  { viewStart, visibleCount, colW, bodyTop }
+) {
+  if (!bundles?.length || colW <= 0) return;
+
+  const ribbonW = Math.max(4, Math.min(colW * 0.72, ROW_H * 1.1));
+
+  for (const bundle of bundles) {
+    const color =
+      MOTIF_BUNDLE_COLORS[bundle.occurrenceIndex % MOTIF_BUNDLE_COLORS.length];
+    const pathPoints = [];
+
+    for (const node of bundle.path) {
+      const localC = node.col - viewStart;
+      if (localC < 0 || localC >= visibleCount) continue;
+      pathPoints.push({ ...cellCenter(localC, node.row, colW, bodyTop), node, localC });
+    }
+
+    const allVisible = bundle.cells.every((cell) => {
+      const localC = cell.col - viewStart;
+      return localC >= 0 && localC < visibleCount;
+    });
+    if (!allVisible || pathPoints.length < 2) continue;
+
+    // Ribbons flow transition → transition; first segment starts at step 1 (e.g. 0→1).
+    for (let i = 1; i < pathPoints.length; i++) {
+      const a = pathPoints[i - 1];
+      const b = pathPoints[i];
+      drawSankeyRibbon(ctx, a.x, a.y, b.x, b.y, ribbonW, color);
+    }
+
+    const transPoints = [];
+    for (const cell of bundle.cells) {
+      const localC = cell.col - viewStart;
+      if (localC < 0 || localC >= visibleCount) continue;
+
+      const { x, y } = cellCenter(localC, cell.row, colW, bodyTop);
+      const x0 = LABEL_W + localC * colW;
+      const yTop = bodyTop + cell.row * ROW_H;
+      transPoints.push({ x, y, localC, cell });
+
+      ctx.save();
+      ctx.fillStyle = hexToRgba(color, 0.5);
+      ctx.fillRect(x0 + 1, yTop + 1, colW - 2, ROW_H - 2);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x0 + 0.5, yTop + 0.5, colW - 1, ROW_H - 1);
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 8px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(String(cell.stepIdx + 1), x, y);
+      ctx.restore();
+    }
+
+    for (const p of transPoints) {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 3.5, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+  }
+}
+
 export default function RatioMatrix({
   columns,
   numStates,
   mode = 'intensity',
-  highlightCells = [],
+  motifBundles = [],
   viewStart = 0,
   viewCount,
 }) {
@@ -156,18 +260,11 @@ export default function RatioMatrix({
     ctx.lineTo(LABEL_W, bodyTop + featureRows.length * ROW_H);
     ctx.stroke();
 
-    highlightCells.forEach(({ row, col }) => {
-      if (row < 0 || row >= featureRows.length || col < viewStart) return;
-      const localC = col - viewStart;
-      if (localC >= visibleCount) return;
-
-      const x = LABEL_W + localC * colW;
-      const yTop = bodyTop + row * ROW_H;
-      ctx.save();
-      ctx.strokeStyle = '#e65100';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(x + 0.5, yTop + 0.5, colW - 1, ROW_H - 1);
-      ctx.restore();
+    drawMotifBundlesOnMatrix(ctx, motifBundles, {
+      viewStart,
+      visibleCount,
+      colW,
+      bodyTop,
     });
   }, [
     totalCols,
@@ -178,7 +275,7 @@ export default function RatioMatrix({
     columns,
     featureRows,
     mode,
-    highlightCells,
+    motifBundles,
     viewStart,
     bodyTop,
   ]);

@@ -303,24 +303,39 @@ export function motifTransitionRowIndices(motif, numStates) {
     .filter((i) => i >= 0);
 }
 
+export const MOTIF_BUNDLE_COLORS = [
+  '#e65100',
+  '#1565c0',
+  '#6a1b9a',
+  '#2e7d32',
+  '#c62828',
+];
+
 export function computeMotifMatrixHighlights(motif, numStates, occurrences) {
-  if (!motif || !occurrences?.length) return { cells: [] };
+  if (!motif || !occurrences?.length) return { bundles: [] };
 
-  const cells = [];
-  const seen = new Set();
+  const bundles = [];
 
-  for (const occ of occurrences) {
-    for (const step of occ.steps) {
+  for (let occIdx = 0; occIdx < occurrences.length; occIdx++) {
+    const occ = occurrences[occIdx];
+    const cells = [];
+
+    for (let stepIdx = 0; stepIdx < occ.steps.length; stepIdx++) {
+      const step = occ.steps[stepIdx];
       const row = featureRowIndexForTransition(step.from, step.to, numStates);
       if (row < 0 || step.col < 0) continue;
-      const key = `${row},${step.col}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      cells.push({ row, col: step.col });
+      cells.push({ row, col: step.col, stepIdx });
     }
+
+    if (cells.length !== occ.steps.length) continue;
+
+    // Sankey path starts at the first transition (e.g. 0→1) and links each next one.
+    const path = cells.map((cell) => ({ ...cell, kind: 'transition' }));
+
+    bundles.push({ occurrenceIndex: occIdx, cells, path });
   }
 
-  return { cells };
+  return { bundles };
 }
 
 export function computeMotifHighlights(
