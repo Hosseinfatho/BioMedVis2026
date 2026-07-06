@@ -15,8 +15,10 @@ import {
   buildAlignmentOptions,
 } from '../../utils/alignment';
 import { slotKey } from '../../utils/slotKey';
+import { representativeRowsBySlot } from '../../utils/matrixRepresentativeRows';
 import InteractiveMatrix from './InteractiveMatrix';
 import MotifPanel from './MotifPanel';
+import Trace from '../Trace';
 
 function featuresBySlot(rows, numStates, alignmentId) {
   const map = new Map();
@@ -220,6 +222,16 @@ export default function Compare({
     };
   }, [dataA, dataB, numStates, alignmentId]);
 
+  const motifSearchRowsA = useMemo(
+    () => (dataA ? representativeRowsBySlot(dataA, matrixSlots) : []),
+    [dataA, matrixSlots]
+  );
+
+  const motifSearchRowsB = useMemo(
+    () => (dataB ? representativeRowsBySlot(dataB, matrixSlots) : []),
+    [dataB, matrixSlots]
+  );
+
   useEffect(() => {
     onSlotsChange?.(matrixSlots);
   }, [matrixSlots, onSlotsChange]);
@@ -315,6 +327,26 @@ export default function Compare({
       {error && <div className="error-banner">{error}</div>}
       {loading && <div className="empty-state">Loading…</div>}
 
+      {!loading && !error && dataA && colCount > 0 && (
+        <Trace
+          dataA={dataA}
+          dataB={showResult ? dataB : null}
+          systemALabel={`${SYSTEMS[systemA]?.label || systemA} (${systemA})`}
+          systemBLabel={`${SYSTEMS[systemB]?.label || systemB} (${systemB})`}
+          canCompare={showResult}
+          numStates={numStates}
+          matrixSlots={matrixSlots}
+          alignmentId={alignmentId}
+          viewStart={matrixView.viewStart}
+          viewCount={matrixView.viewCount || colCount}
+          numCols={colCount}
+          selection={selection}
+          hoverIndex={hoverIndex}
+          onHoverChange={onHoverChange}
+          onViewChange={handleMatrixViewChange}
+        />
+      )}
+
       {/* first: just the System A matrix */}
       {!loading && !error && dataA && (
         <>
@@ -335,6 +367,7 @@ export default function Compare({
             hoverIndex={hoverIndex}
             onHoverChange={onHoverChange}
             trajectoryRows={dataA}
+            motifSearchRows={motifSearchRowsA}
             matrixSlots={matrixSlots}
             viewStart={matrixView.viewStart}
             viewCount={matrixView.viewCount || colCount}
@@ -364,6 +397,7 @@ export default function Compare({
             hoverIndex={hoverIndex}
             onHoverChange={onHoverChange}
             trajectoryRows={dataB}
+            motifSearchRows={motifSearchRowsB}
             matrixSlots={matrixSlots}
             viewStart={matrixView.viewStart}
             viewCount={matrixView.viewCount || colCount}

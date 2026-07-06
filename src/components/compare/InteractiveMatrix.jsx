@@ -4,6 +4,7 @@ import {
   computeMotifMatrixHighlights,
   findGlobalMotifOccurrences,
 } from '../../utils/motifs';
+import { representativeRowsBySlot } from '../../utils/matrixRepresentativeRows';
 import { rateAggregationWindow, visibleSelection } from '../../utils/matrixViewport';
 import RatioMatrix, { hitTestMotifBundlesOnMatrix } from './RatioMatrix';
 import RateMatrix from './RateMatrix';
@@ -19,6 +20,7 @@ export default function InteractiveMatrix({
   onHoverChange,
   trajectoryRows,
   trajectoryRowsB,
+  motifSearchRows: motifSearchRowsProp,
   matrixSlots,
   activeMotif,
   motifSystemId,
@@ -190,22 +192,56 @@ export default function InteractiveMatrix({
       ? diffRateMatrices(rateA, rateB, numStates)
       : rateA;
 
-  const motifSearchRows = useMemo(() => {
-    if (rateMode === 'diff' && trajectoryRowsB?.length) {
-      return [...(trajectoryRows || []), ...trajectoryRowsB];
-    }
-    return trajectoryRows || [];
-  }, [rateMode, trajectoryRows, trajectoryRowsB]);
+  const motifGetStates = useCallback(
+    (row) => getMatrixStates(row, 'original', alignmentId),
+    [alignmentId]
+  );
 
   const globalOccurrences = useMemo(() => {
-    if (!activeMotif || !motifSearchRows.length) return [];
+    if (!activeMotif) return [];
+
+    if (rateMode === 'diff' && trajectoryRowsB?.length) {
+      const repA = representativeRowsBySlot(trajectoryRows, matrixSlots);
+      const repB = representativeRowsBySlot(trajectoryRowsB, matrixSlots);
+      const occA = repA.length
+        ? findGlobalMotifOccurrences(
+            activeMotif,
+            repA,
+            matrixSlots,
+            motifGetStates
+          )
+        : [];
+      const occB = repB.length
+        ? findGlobalMotifOccurrences(
+            activeMotif,
+            repB,
+            matrixSlots,
+            motifGetStates
+          )
+        : [];
+      return [...occA, ...occB];
+    }
+
+    const searchRows =
+      motifSearchRowsProp ??
+      representativeRowsBySlot(trajectoryRows, matrixSlots);
+
+    if (!searchRows.length) return [];
     return findGlobalMotifOccurrences(
       activeMotif,
-      motifSearchRows,
+      searchRows,
       matrixSlots,
-      (row) => row.states || []
+      motifGetStates
     );
-  }, [activeMotif, motifSearchRows, matrixSlots]);
+  }, [
+    activeMotif,
+    motifSearchRowsProp,
+    trajectoryRows,
+    trajectoryRowsB,
+    matrixSlots,
+    motifGetStates,
+    rateMode,
+  ]);
 
   const { bundles: motifBundles } = useMemo(
     () => computeMotifMatrixHighlights(activeMotif, numStates, globalOccurrences),

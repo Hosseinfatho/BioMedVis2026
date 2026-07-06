@@ -338,6 +338,17 @@ body {
   border-top: 1px solid #000;
 }
 
+.trace-panel {
+  width: 100%;
+  border-bottom: 1px solid #ddd;
+  background: #fafafa;
+}
+
+.trace-panel canvas {
+  display: block;
+  width: 100%;
+}
+
 .comparison-header {
   padding: 2px 8px;
   background: #fff;
@@ -663,6 +674,132 @@ body {
   position: relative;
   flex: 1 1 auto;
   min-width: 0;
+}
+
+.im-plot-with-trace {
+  display: flex;
+  flex-direction: column;
+}
+
+.im-pattern-plot {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.trace-combined {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 12px;
+  margin-bottom: 10px;
+  padding: 0 0 4px;
+  border-bottom: 1px solid #ddd;
+}
+
+.trace-combined-plot {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  background: #fafafa;
+}
+
+.trace-combined-plot canvas {
+  display: block;
+  width: 100%;
+}
+
+.trace-layer-controls {
+  flex: 0 0 auto;
+  min-width: 168px;
+  padding: 8px 10px;
+  background: #f5f6f8;
+  border: 1px solid #dde1e8;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  align-self: flex-start;
+}
+
+.trace-layer-controls-title {
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #333;
+}
+
+.trace-layer-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.trace-layer-option.disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.trace-layer-option input {
+  margin: 0;
+  cursor: pointer;
+}
+
+.trace-layer-option.disabled input {
+  cursor: not-allowed;
+}
+
+.trace-layer-option-active {
+  font-weight: 600;
+}
+
+.trace-layer-swatch {
+  width: 18px;
+  height: 4px;
+  border-radius: 2px;
+  flex-shrink: 0;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.trace-layer-swatch-a {
+  background: linear-gradient(90deg, #a6cee3, #1f78b4, #b2df8a, #33a02c);
+}
+
+.trace-layer-swatch-b {
+  background: linear-gradient(90deg, #a6cee3, #1f78b4, #b2df8a, #33a02c);
+  opacity: 0.55;
+}
+
+.trace-layer-swatch-diff {
+  background: repeating-linear-gradient(
+    90deg,
+    #8e9aa6 0,
+    #8e9aa6 3px,
+    #b8c4cc 3px,
+    #b8c4cc 6px
+  );
+}
+
+.trace-panel-matrix {
+  position: relative;
+  width: 100%;
+  flex-shrink: 0;
+  border-bottom: 1px solid #ddd;
+  background: #fafafa;
+}
+
+.trace-panel-matrix canvas {
+  display: block;
+  width: 100%;
+}
+
+.trace-hover-layer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 100px;
+  cursor: crosshair;
 }
 
 .im-plot-zoomable {
