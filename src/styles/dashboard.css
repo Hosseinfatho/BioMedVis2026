@@ -428,6 +428,101 @@ body {
   font-weight: 600;
 }
 
+.dual-comparison-row .comparison-header {
+  padding: 4px 8px;
+}
+
+.dual-vs {
+  font-weight: 500;
+  color: #888;
+}
+
+.dual-comparison-note {
+  padding: 10px 12px;
+  font-size: 0.82rem;
+  color: #555;
+  background: #fff8e1;
+  border: 1px solid #ffe082;
+  border-radius: 6px;
+  margin-bottom: 12px;
+}
+
+.dual-chart-wrap {
+  position: relative;
+}
+
+.dual-chart-wrap canvas {
+  display: block;
+  width: 100%;
+}
+
+.chart-offset-handle-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.chart-offset-handle {
+  position: absolute;
+  top: 12px;
+  bottom: 36px;
+  width: 14px;
+  margin-left: -7px;
+  pointer-events: auto;
+  cursor: ew-resize;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.chart-offset-handle::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: rgba(230, 81, 0, 0.9);
+  border-radius: 1px;
+}
+
+.chart-offset-handle-knob {
+  position: relative;
+  z-index: 1;
+  width: 12px;
+  height: 22px;
+  border-radius: 4px;
+  background: #e65100;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
+
+.chart-offset-handle-label {
+  position: absolute;
+  top: -2px;
+  left: 16px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: #e65100;
+  white-space: nowrap;
+  background: rgba(255, 255, 255, 0.92);
+  padding: 1px 4px;
+  border-radius: 3px;
+  border: 1px solid #ffcc80;
+}
+
+.chart-offset-handle.dragging .chart-offset-handle-knob {
+  background: #bf360c;
+}
+
+.dual-chart.shift-draggable {
+  cursor: default;
+}
+
 .comparison-charts {
   display: flex;
   flex-direction: row;
@@ -581,17 +676,6 @@ body {
   white-space: nowrap;
 }
 
-.motif-match-count {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.78rem;
-  color: #1976d2;
-  font-weight: 600;
-  white-space: nowrap;
-  margin-left: auto;
-}
-
 .motif-state-buttons {
   display: flex;
   gap: 6px;
@@ -624,6 +708,12 @@ body {
   border-color: #64b5f6;
 }
 
+.motif-action-group {
+  display: flex;
+  gap: 10px;
+  margin-left: 50px;
+}
+
 .motif-action-btn {
   border: 1px solid #1976d2;
   background: #1976d2;
@@ -643,20 +733,6 @@ body {
   background: #fff;
   color: #555;
   border-color: #cfd8e3;
-}
-
-.motif-clear-active {
-  border: none;
-  background: transparent;
-  color: #888;
-  font-size: 1.1rem;
-  line-height: 1;
-  cursor: pointer;
-  padding: 0 4px;
-}
-
-.motif-clear-active:hover {
-  color: #333;
 }
 
 .motif-inline-link {

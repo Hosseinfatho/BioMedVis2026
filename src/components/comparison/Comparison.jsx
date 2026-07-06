@@ -1,4 +1,5 @@
 import ComparisonRow from './ComparisonRow';
+import DualComparisonRow from './DualComparisonRow';
 
 export default function Comparison({
   systemData,
@@ -10,8 +11,31 @@ export default function Comparison({
   activeMotif,
   hoveredMotif,
   onMotifHoverChange,
+  chartTimeOffsetB = 0,
+  onChartTimeOffsetBChange,
 }) {
   if (!systemData.length) return null;
+
+  if (systemData.length === 2) {
+    const [a, b] = systemData;
+    return (
+      <div className="comparison">
+        <DualComparisonRow
+          systemA={a.systemId}
+          systemB={b.systemId}
+          rowsA={a.rows}
+          rowsB={b.rows}
+          modelId={selectedModel}
+          numStates={numStates}
+          viewMode={a.viewMode}
+          timeOffsetB={chartTimeOffsetB}
+          onTimeOffsetBChange={onChartTimeOffsetBChange}
+          selection={selection}
+          hoverIndex={hoverIndex}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="comparison">

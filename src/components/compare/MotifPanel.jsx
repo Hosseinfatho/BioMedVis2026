@@ -3,13 +3,7 @@ import { motifFromStates } from '../../utils/motifs';
 
 export default function MotifPanel({
   numStates,
-  activeMotif,
   onActiveMotifChange,
-  systemALabel,
-  systemBLabel,
-  motifCountA = 0,
-  motifCountB = null,
-  showCompare = false,
 }) {
   const [draftStates, setDraftStates] = useState([]);
 
@@ -54,35 +48,19 @@ export default function MotifPanel({
       <span className="motif-draft-label">
         {draftStates.length ? draftStates.join(' → ') : 'Click states…'}
       </span>
-      <button
-        type="button"
-        className="motif-action-btn"
-        onClick={applyDraft}
-        disabled={!draftMotif}
-      >
-        Apply
-      </button>
-      <button type="button" className="motif-action-btn secondary" onClick={clearAll}>
-        Clear
-      </button>
-      {activeMotif && (
-        <span className="motif-match-count">
-          <strong>{activeMotif.label}</strong>
-          {' · '}
-          {systemALabel}: {motifCountA}
-          {showCompare && systemBLabel != null && (
-            <> · {systemBLabel}: {motifCountB}</>
-          )}
-          <button
-            type="button"
-            className="motif-clear-active"
-            onClick={clearAll}
-            aria-label="Clear motif"
-          >
-            ×
-          </button>
-        </span>
-      )}
+      <div className="motif-action-group">
+        <button
+          type="button"
+          className="motif-action-btn"
+          onClick={applyDraft}
+          disabled={!draftMotif}
+        >
+          Apply
+        </button>
+        <button type="button" className="motif-action-btn secondary" onClick={clearAll}>
+          Clear
+        </button>
+      </div>
     </div>
   );
 }

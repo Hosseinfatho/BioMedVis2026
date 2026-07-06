@@ -3,6 +3,7 @@ import ControlPanel from './components/ControlPanel';
 import Comparison from './components/comparison/Comparison';
 import Compare from './components/compare/Compare';
 import { MODELS } from './config/dataFiles';
+import { DEFAULT_SYSTEM_B_TIME_OFFSET } from './utils/constants';
 import { loadSystemData } from './utils/loadSystemData';
 
 export default function App() {
@@ -18,6 +19,9 @@ export default function App() {
   const [matrixSlots, setMatrixSlots] = useState([]);
   const [activeMotif, setActiveMotif] = useState(null);
   const [hoveredMotif, setHoveredMotif] = useState(null);
+  const [chartTimeOffsetB, setChartTimeOffsetB] = useState(
+    DEFAULT_SYSTEM_B_TIME_OFFSET
+  );
 
   const numStates = MODELS[selectedModel].numStates;
 
@@ -53,6 +57,7 @@ export default function App() {
       );
       setSystemData(results);
       setGenerated(true);
+      setChartTimeOffsetB(DEFAULT_SYSTEM_B_TIME_OFFSET);
     } catch (err) {
       setError(err.message);
       setSystemData([]);
@@ -93,6 +98,8 @@ export default function App() {
         activeMotif={activeMotif}
         hoveredMotif={hoveredMotif}
         onMotifHoverChange={handleMotifHoverChange}
+        chartTimeOffsetB={chartTimeOffsetB}
+        onChartTimeOffsetBChange={setChartTimeOffsetB}
       />
 
       {generated && (

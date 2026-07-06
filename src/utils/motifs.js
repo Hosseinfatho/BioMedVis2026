@@ -310,18 +310,18 @@ export function motifTransitionRowIndices(motif, numStates) {
 }
 
 export const MOTIF_BUNDLE_COLORS = [
-  '#8dd3c7',
-  '#ffffb3',
-  '#bebada',
-  '#fb8072',
-  '#80b1d3',
-  '#fdb462',
-  '#b3de69',
-  '#fccde5',
-  '#d9d9d9',
-  '#bc80bd',
-  '#ccebc5',
-  '#ffed6f',
+  '#00d3af',
+  '#ffff00',
+  '#1b00da',
+  '#fb1a00',
+  '#007dd3',
+  '#fd8600',
+  '#8cde00',
+  '#fc0081',
+  '#d9d9d9', // gray cannot be saturated
+  '#ba00bd',
+  '#2beb00',
+  '#ffdf00'
 ];
 
 export function attachMatrixColumns(occurrences, matrixSlots) {

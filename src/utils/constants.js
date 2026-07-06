@@ -11,38 +11,38 @@ export function getMarkovStateColor(state) {
 
 // Epoch palette: 12 anchors (#a6cee3 … #b15928) resampled to 16 epochs.
 export const EPOCH_ANCHOR_COLORS = [
-  '#a6cee3',
-  '#1f78b4',
-  '#b2df8a',
-  '#33a02c',
-  '#fb9a99',
-  '#e31a1c',
-  '#fdbf6f',
-  '#ff7f00',
-  '#cab2d6',
+  '#001F3F',
+  '#1B1B1B',
+  '#081C15',
+  '#240046',
+  '#1D004E',
+  '#0B132B',
+  '#10002B',
+  '#0A0908',
+  '#03071E',
   '#6a3d9a',
   '#ffff99',
-  '#b15928',
+  '#000000',
 ];
 
-// RGB-linear interpolation between anchors → 16 distinct epoch colors.
+// Epoch colors (one per epoch index 1–16).
 export const EPOCH_COLORS = {
-  1: '#a6cee3',
-  2: '#438fc1',
-  3: '#64a8a0',
-  4: '#99d277',
-  5: '#3ba432',
-  6: '#b89c75',
-  7: '#f16767',
-  8: '#e63027',
-  9: '#faa964',
-  10: '#fe992c',
-  11: '#ed9047',
-  12: '#c4aad2',
-  13: '#7d54a6',
-  14: '#b9a499',
-  15: '#ead37b',
-  16: '#b15928',
+  1: '#964343',
+  2: '#A74848',
+  3: '#B46E4D',
+  4: '#B4994D',
+  5: '#AAA84A',
+  6: '#94B44D',
+  7: '#4BAF4B',
+  8: '#439643',
+  9: '#3B7E3B',
+  10: '#3B7E65',
+  11: '#3B8080',
+  12: '#46829F',
+  13: '#46689F',
+  14: '#414190',
+  15: '#5D397A',
+  16: '#67356E',
 };
 
 export function getEpochColor(epoch) {
@@ -53,3 +53,6 @@ export const ROW_HEIGHT = 6;
 export const LABEL_WIDTH = 150;
 export const BIN_COUNT = 200;
 export const HIST_HEIGHT = 24;
+
+// Default horizontal time shift (frames) for System B in dual overlay charts.
+export const DEFAULT_SYSTEM_B_TIME_OFFSET = 3000;

@@ -16,7 +16,6 @@ import {
 } from '../../utils/alignment';
 import {
   motifBundlesForSystem,
-  alignedMotifOccurrencesForSystem,
 } from '../../utils/motifs';
 import { slotKey } from '../../utils/slotKey';
 import InteractiveMatrix from './InteractiveMatrix';
@@ -230,32 +229,6 @@ export default function Compare({
 
   const motifGetStates = useCallback((row) => row.states || [], []);
 
-  const motifOccurrencesA = useMemo(
-    () =>
-      activeMotif && dataA?.length
-        ? alignedMotifOccurrencesForSystem(
-            activeMotif,
-            dataA,
-            matrixSlots,
-            motifGetStates
-          ).length
-        : 0,
-    [activeMotif, dataA, matrixSlots, motifGetStates]
-  );
-
-  const motifOccurrencesB = useMemo(
-    () =>
-      activeMotif && dataB?.length
-        ? alignedMotifOccurrencesForSystem(
-            activeMotif,
-            dataB,
-            matrixSlots,
-            motifGetStates
-          ).length
-        : 0,
-    [activeMotif, dataB, matrixSlots, motifGetStates]
-  );
-
   const motifBundlesA = useMemo(
     () => motifBundlesForSystem(activeMotif, numStates, dataA, matrixSlots, motifGetStates),
     [activeMotif, numStates, dataA, matrixSlots, motifGetStates]
@@ -373,13 +346,7 @@ export default function Compare({
       {!loading && !error && dataA && (
         <MotifPanel
           numStates={numStates}
-          activeMotif={activeMotif}
           onActiveMotifChange={onActiveMotifChange}
-          systemALabel={SYSTEMS[systemA]?.label || systemA}
-          systemBLabel={showResult ? SYSTEMS[systemB]?.label || systemB : null}
-          motifCountA={motifOccurrencesA}
-          motifCountB={showResult ? motifOccurrencesB : null}
-          showCompare={showResult}
         />
       )}
 
