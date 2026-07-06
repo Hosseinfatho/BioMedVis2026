@@ -14,8 +14,11 @@ import {
   ALIGNMENT_NONE,
   buildAlignmentOptions,
 } from '../../utils/alignment';
+import {
+  motifBundlesForSystem,
+  alignedMotifOccurrencesForSystem,
+} from '../../utils/motifs';
 import { slotKey } from '../../utils/slotKey';
-import { representativeRowsBySlot } from '../../utils/matrixRepresentativeRows';
 import InteractiveMatrix from './InteractiveMatrix';
 import MotifPanel from './MotifPanel';
 import Trace from '../Trace';
@@ -160,10 +163,13 @@ export default function Compare({
         slots.push(s);
       }
     }
-    for (const s of mapB.keys()) {
-      if (!seen.has(s)) {
-        seen.add(s);
-        slots.push(s);
+    if (dataB) {
+      for (const row of dataB) {
+        const s = slotKey(row.name);
+        if (s && !seen.has(s)) {
+          seen.add(s);
+          slots.push(s);
+        }
       }
     }
 
@@ -222,15 +228,59 @@ export default function Compare({
     };
   }, [dataA, dataB, numStates, alignmentId]);
 
-  const motifSearchRowsA = useMemo(
-    () => (dataA ? representativeRowsBySlot(dataA, matrixSlots) : []),
-    [dataA, matrixSlots]
+  const motifGetStates = useCallback((row) => row.states || [], []);
+
+  const motifOccurrencesA = useMemo(
+    () =>
+      activeMotif && dataA?.length
+        ? alignedMotifOccurrencesForSystem(
+            activeMotif,
+            dataA,
+            matrixSlots,
+            motifGetStates
+          ).length
+        : 0,
+    [activeMotif, dataA, matrixSlots, motifGetStates]
   );
 
-  const motifSearchRowsB = useMemo(
-    () => (dataB ? representativeRowsBySlot(dataB, matrixSlots) : []),
-    [dataB, matrixSlots]
+  const motifOccurrencesB = useMemo(
+    () =>
+      activeMotif && dataB?.length
+        ? alignedMotifOccurrencesForSystem(
+            activeMotif,
+            dataB,
+            matrixSlots,
+            motifGetStates
+          ).length
+        : 0,
+    [activeMotif, dataB, matrixSlots, motifGetStates]
   );
+
+  const motifBundlesA = useMemo(
+    () => motifBundlesForSystem(activeMotif, numStates, dataA, matrixSlots, motifGetStates),
+    [activeMotif, numStates, dataA, matrixSlots, motifGetStates]
+  );
+
+  const motifBundlesB = useMemo(
+    () =>
+      dataB
+        ? motifBundlesForSystem(activeMotif, numStates, dataB, matrixSlots, motifGetStates)
+        : [],
+    [activeMotif, numStates, dataB, matrixSlots, motifGetStates]
+  );
+
+  const motifBundlesDiff = useMemo(() => {
+    if (!activeMotif) return [];
+    let nextIdx = 0;
+    const merged = [];
+    for (const bundle of motifBundlesA) {
+      merged.push({ ...bundle, occurrenceIndex: nextIdx++ });
+    }
+    for (const bundle of motifBundlesB) {
+      merged.push({ ...bundle, occurrenceIndex: nextIdx++ });
+    }
+    return merged;
+  }, [activeMotif, motifBundlesA, motifBundlesB]);
 
   useEffect(() => {
     onSlotsChange?.(matrixSlots);
@@ -271,7 +321,7 @@ export default function Compare({
   );
 
   const sameSystem = systemA === systemB;
-  const showResult = applied && !loading && !error && !sameSystem;
+  const showResult = applied && !loading && !error && !sameSystem && !!dataB;
 
   return (
     <div className="compare">
@@ -321,7 +371,16 @@ export default function Compare({
       </div>
 
       {!loading && !error && dataA && (
-        <MotifPanel numStates={numStates} onActiveMotifChange={onActiveMotifChange} />
+        <MotifPanel
+          numStates={numStates}
+          activeMotif={activeMotif}
+          onActiveMotifChange={onActiveMotifChange}
+          systemALabel={SYSTEMS[systemA]?.label || systemA}
+          systemBLabel={showResult ? SYSTEMS[systemB]?.label || systemB : null}
+          motifCountA={motifOccurrencesA}
+          motifCountB={showResult ? motifOccurrencesB : null}
+          showCompare={showResult}
+        />
       )}
 
       {error && <div className="error-banner">{error}</div>}
@@ -355,6 +414,7 @@ export default function Compare({
             {MODELS[selectedModel].label}
           </div>
           <InteractiveMatrix
+            key={`matrix-${systemA}`}
             columns={columnsA}
             numStates={numStates}
             alignmentId={alignmentId}
@@ -367,8 +427,8 @@ export default function Compare({
             hoverIndex={hoverIndex}
             onHoverChange={onHoverChange}
             trajectoryRows={dataA}
-            motifSearchRows={motifSearchRowsA}
             matrixSlots={matrixSlots}
+            motifBundles={motifBundlesA}
             viewStart={matrixView.viewStart}
             viewCount={matrixView.viewCount || colCount}
             onViewChange={handleMatrixViewChange}
@@ -385,6 +445,7 @@ export default function Compare({
             {MODELS[selectedModel].label}
           </div>
           <InteractiveMatrix
+            key={`matrix-${systemB}`}
             columns={columnsB}
             numStates={numStates}
             alignmentId={alignmentId}
@@ -397,8 +458,8 @@ export default function Compare({
             hoverIndex={hoverIndex}
             onHoverChange={onHoverChange}
             trajectoryRows={dataB}
-            motifSearchRows={motifSearchRowsB}
             matrixSlots={matrixSlots}
+            motifBundles={motifBundlesB}
             viewStart={matrixView.viewStart}
             viewCount={matrixView.viewCount || colCount}
             onViewChange={handleMatrixViewChange}
@@ -408,6 +469,7 @@ export default function Compare({
             Difference |A − B| · {colCount} trajectories
           </div>
           <InteractiveMatrix
+            key="matrix-diff"
             columns={columnsDiff}
             numStates={numStates}
             alignmentId={alignmentId}
@@ -422,6 +484,7 @@ export default function Compare({
             trajectoryRows={dataA}
             trajectoryRowsB={dataB}
             matrixSlots={matrixSlots}
+            motifBundles={motifBundlesDiff}
             viewStart={matrixView.viewStart}
             viewCount={matrixView.viewCount || colCount}
             onViewChange={handleMatrixViewChange}

@@ -115,12 +115,6 @@ function drawMotifBundlesOnMatrix(
       pathPoints.push({ ...cellCenter(localC, node.row, colW, bodyTop), node, localC });
     }
 
-    const allVisible = bundle.cells.every((cell) => {
-      const localC = cell.col - viewStart;
-      return localC >= 0 && localC < visibleCount;
-    });
-    if (!allVisible || pathPoints.length < 2) continue;
-
     for (let i = 1; i < pathPoints.length; i++) {
       const a = pathPoints[i - 1];
       const b = pathPoints[i];
@@ -134,9 +128,11 @@ function drawMotifBundlesOnMatrix(
 
     const lastStepIdx = bundle.cells.length - 1;
     const transPoints = [];
+    let drewAnyCell = false;
     for (const cell of bundle.cells) {
       const localC = cell.col - viewStart;
       if (localC < 0 || localC >= visibleCount) continue;
+      drewAnyCell = true;
 
       const isStart = cell.stepIdx === 0;
       const isEnd = cell.stepIdx === lastStepIdx;
@@ -178,6 +174,8 @@ function drawMotifBundlesOnMatrix(
       ctx.stroke();
       ctx.restore();
     }
+
+    if (!drewAnyCell) continue;
   }
 }
 

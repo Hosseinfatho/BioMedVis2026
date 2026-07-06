@@ -1,7 +1,16 @@
 import { useMemo, useState } from 'react';
 import { motifFromStates } from '../../utils/motifs';
 
-export default function MotifPanel({ numStates, onActiveMotifChange }) {
+export default function MotifPanel({
+  numStates,
+  activeMotif,
+  onActiveMotifChange,
+  systemALabel,
+  systemBLabel,
+  motifCountA = 0,
+  motifCountB = null,
+  showCompare = false,
+}) {
   const [draftStates, setDraftStates] = useState([]);
 
   const draftMotif = useMemo(() => motifFromStates(draftStates), [draftStates]);
@@ -29,40 +38,51 @@ export default function MotifPanel({ numStates, onActiveMotifChange }) {
 
   return (
     <div className="motif-panel">
-      <div className="motif-panel-header">
-        <h3>Motif pattern</h3>
+      <span className="motif-panel-label">Motif pattern</span>
+      <div className="motif-state-buttons">
+        {stateOptions.map((s) => (
+          <button
+            key={s}
+            type="button"
+            className="motif-state-btn"
+            onClick={() => appendState(s)}
+          >
+            S{s}
+          </button>
+        ))}
       </div>
-
-      <div className="motif-builder">
-        <div className="motif-state-buttons">
-          {stateOptions.map((s) => (
-            <button
-              key={s}
-              type="button"
-              className="motif-state-btn"
-              onClick={() => appendState(s)}
-            >
-              S{s}
-            </button>
-          ))}
-        </div>
-        <div className="motif-draft-row">
-          <span className="motif-draft-label">
-            {draftStates.length ? draftStates.join(' → ') : 'Click states to build…'}
-          </span>
+      <span className="motif-draft-label">
+        {draftStates.length ? draftStates.join(' → ') : 'Click states…'}
+      </span>
+      <button
+        type="button"
+        className="motif-action-btn"
+        onClick={applyDraft}
+        disabled={!draftMotif}
+      >
+        Apply
+      </button>
+      <button type="button" className="motif-action-btn secondary" onClick={clearAll}>
+        Clear
+      </button>
+      {activeMotif && (
+        <span className="motif-match-count">
+          <strong>{activeMotif.label}</strong>
+          {' · '}
+          {systemALabel}: {motifCountA}
+          {showCompare && systemBLabel != null && (
+            <> · {systemBLabel}: {motifCountB}</>
+          )}
           <button
             type="button"
-            className="motif-action-btn"
-            onClick={applyDraft}
-            disabled={!draftMotif}
+            className="motif-clear-active"
+            onClick={clearAll}
+            aria-label="Clear motif"
           >
-            Apply
+            ×
           </button>
-          <button type="button" className="motif-action-btn secondary" onClick={clearAll}>
-            Clear
-          </button>
-        </div>
-      </div>
+        </span>
+      )}
     </div>
   );
 }

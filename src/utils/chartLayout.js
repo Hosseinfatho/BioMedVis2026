@@ -306,8 +306,13 @@ function isValidMotifOccurrenceChain(steps) {
   for (let i = 1; i < steps.length; i++) {
     const prev = steps[i - 1];
     const cur = steps[i];
-    if (cur.globalTime <= prev.globalTime) return false;
-    if (cur.trajectoryIndex < prev.trajectoryIndex) return false;
+    if (cur.trajectoryIndex <= prev.trajectoryIndex) return false;
+    if (
+      cur.trajectoryIndex === prev.trajectoryIndex &&
+      cur.globalTime <= prev.globalTime
+    ) {
+      return false;
+    }
   }
   return true;
 }

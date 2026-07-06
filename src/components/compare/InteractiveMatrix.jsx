@@ -1,10 +1,5 @@
 import { useRef, useState, useEffect, useMemo, useCallback } from 'react';
-import { aggregateRateFromWindow, diffRateMatrices, getMatrixStates } from '../../utils/computeTransitionFeatures';
-import {
-  computeMotifMatrixHighlights,
-  findGlobalMotifOccurrences,
-} from '../../utils/motifs';
-import { representativeRowsBySlot } from '../../utils/matrixRepresentativeRows';
+import { aggregateRateFromWindow, diffRateMatrices } from '../../utils/computeTransitionFeatures';
 import { rateAggregationWindow, visibleSelection } from '../../utils/matrixViewport';
 import RatioMatrix, { hitTestMotifBundlesOnMatrix } from './RatioMatrix';
 import RateMatrix from './RateMatrix';
@@ -20,8 +15,8 @@ export default function InteractiveMatrix({
   onHoverChange,
   trajectoryRows,
   trajectoryRowsB,
-  motifSearchRows: motifSearchRowsProp,
   matrixSlots,
+  motifBundles = [],
   activeMotif,
   motifSystemId,
   hoveredMotif,
@@ -192,61 +187,7 @@ export default function InteractiveMatrix({
       ? diffRateMatrices(rateA, rateB, numStates)
       : rateA;
 
-  const motifGetStates = useCallback(
-    (row) => getMatrixStates(row, 'original', alignmentId),
-    [alignmentId]
-  );
-
-  const globalOccurrences = useMemo(() => {
-    if (!activeMotif) return [];
-
-    if (rateMode === 'diff' && trajectoryRowsB?.length) {
-      const repA = representativeRowsBySlot(trajectoryRows, matrixSlots);
-      const repB = representativeRowsBySlot(trajectoryRowsB, matrixSlots);
-      const occA = repA.length
-        ? findGlobalMotifOccurrences(
-            activeMotif,
-            repA,
-            matrixSlots,
-            motifGetStates
-          )
-        : [];
-      const occB = repB.length
-        ? findGlobalMotifOccurrences(
-            activeMotif,
-            repB,
-            matrixSlots,
-            motifGetStates
-          )
-        : [];
-      return [...occA, ...occB];
-    }
-
-    const searchRows =
-      motifSearchRowsProp ??
-      representativeRowsBySlot(trajectoryRows, matrixSlots);
-
-    if (!searchRows.length) return [];
-    return findGlobalMotifOccurrences(
-      activeMotif,
-      searchRows,
-      matrixSlots,
-      motifGetStates
-    );
-  }, [
-    activeMotif,
-    motifSearchRowsProp,
-    trajectoryRows,
-    trajectoryRowsB,
-    matrixSlots,
-    motifGetStates,
-    rateMode,
-  ]);
-
-  const { bundles: motifBundles } = useMemo(
-    () => computeMotifMatrixHighlights(activeMotif, numStates, globalOccurrences),
-    [activeMotif, numStates, globalOccurrences]
-  );
+  const resolvedMotifBundles = activeMotif ? motifBundles : [];
 
   const hoveredMotifOccIdx =
     hoveredMotif?.systemId === motifSystemId
@@ -261,11 +202,11 @@ export default function InteractiveMatrix({
       : 0;
 
   const reportHover = (e) => {
-    if (onMotifHoverChange && motifBundles.length && motifSystemId) {
+    if (onMotifHoverChange && resolvedMotifBundles.length && motifSystemId) {
       const rect = plotRef.current.getBoundingClientRect();
       const mx = e.clientX - rect.left;
       const my = e.clientY - rect.top;
-      const occIdx = hitTestMotifBundlesOnMatrix(mx, my, motifBundles, {
+      const occIdx = hitTestMotifBundlesOnMatrix(mx, my, resolvedMotifBundles, {
         viewStart,
         visibleCount,
         colW: cw,
@@ -302,7 +243,7 @@ export default function InteractiveMatrix({
         <RatioMatrix
           columns={columns}
           numStates={numStates}
-          motifBundles={motifBundles}
+          motifBundles={resolvedMotifBundles}
           hoveredMotifOccIdx={hoveredMotifOccIdx}
           viewStart={viewStart}
           viewCount={visibleCount}

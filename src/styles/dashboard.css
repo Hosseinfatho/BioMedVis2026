@@ -41,32 +41,92 @@ body {
 .control-panel {
   display: flex;
   flex-wrap: wrap;
-  gap: 24px;
-  align-items: flex-start;
+  align-items: center;
+  gap: 12px 16px;
   background: #fff;
   border: 1px solid #dde1e8;
   border-radius: 8px;
-  padding: 16px 20px;
-  margin-bottom: 20px;
+  padding: 8px 12px;
+  margin-bottom: 14px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
 
-.control-group h3 {
-  margin: 0 0 8px;
-  font-size: 0.75rem;
+.control-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+}
+
+.control-field-label {
+  font-size: 0.72rem;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
   color: #888;
   font-weight: 600;
+  white-space: nowrap;
+}
+
+.control-select,
+.control-dropdown-trigger {
+  font-size: 0.8rem;
+  padding: 4px 8px;
+  border: 1px solid #cfd8e3;
+  border-radius: 4px;
+  background: #fff;
+  color: #333;
+  min-width: 0;
+}
+
+.control-select {
+  max-width: 160px;
+}
+
+.control-dropdown {
+  position: relative;
+}
+
+.control-dropdown-trigger {
+  list-style: none;
+  cursor: pointer;
+  min-width: 140px;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.control-dropdown-trigger::-webkit-details-marker {
+  display: none;
+}
+
+.control-dropdown-trigger::after {
+  content: ' ▾';
+  color: #888;
+  font-size: 0.7rem;
+}
+
+.control-dropdown-panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 20;
+  min-width: 220px;
+  padding: 6px 8px;
+  background: #fff;
+  border: 1px solid #dde1e8;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .control-checkbox {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-bottom: 4px;
+  padding: 4px 2px;
   cursor: pointer;
   user-select: none;
+  font-size: 0.8rem;
 }
 
 .control-checkbox.disabled {
@@ -83,6 +143,21 @@ body {
   font-size: 0.8em;
   color: #aaa;
   font-style: italic;
+}
+
+.control-generate-btn {
+  margin-left: auto;
+  padding: 5px 16px;
+  font-size: 0.82rem;
+}
+
+.control-group h3 {
+  margin: 0 0 8px;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #888;
+  font-weight: 600;
 }
 
 .generate-btn {
@@ -104,13 +179,6 @@ body {
 .generate-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-}
-
-.control-actions {
-  display: flex;
-  align-items: flex-end;
-  flex: 1;
-  justify-content: flex-end;
 }
 
 /* System block */
@@ -492,80 +560,53 @@ body {
 }
 
 .motif-panel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
   margin: 0 0 14px;
-  padding: 12px 14px;
+  padding: 8px 12px;
   background: #fff;
   border: 1px solid #dde1e8;
   border-radius: 8px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
 
-.motif-panel-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 10px;
-}
-
-.motif-panel-header h3 {
-  margin: 0;
+.motif-panel-label {
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: #888;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .motif-match-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 0.78rem;
   color: #1976d2;
   font-weight: 600;
-}
-
-.motif-presets,
-.motif-builder {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-.motif-presets-label,
-.motif-builder-label {
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: #666;
-  min-width: 72px;
-}
-
-.motif-chip {
-  border: 1px solid #cfd8e3;
-  background: #f7f9fc;
-  color: #333;
-  border-radius: 999px;
-  padding: 4px 10px;
-  font-size: 0.78rem;
-  cursor: pointer;
-}
-
-.motif-chip:hover {
-  background: #eef4fb;
-  border-color: #90caf9;
-}
-
-.motif-chip.active {
-  background: #fff8e1;
-  border-color: #f57c00;
-  color: #e65100;
-  font-weight: 600;
+  white-space: nowrap;
+  margin-left: auto;
 }
 
 .motif-state-buttons {
   display: flex;
-  flex-wrap: wrap;
   gap: 6px;
+  flex-shrink: 0;
+}
+
+.motif-draft-label {
+  font-size: 0.82rem;
+  color: #444;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: nowrap;
+  min-width: 80px;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .motif-state-btn {
@@ -581,22 +622,6 @@ body {
 .motif-state-btn:hover {
   background: #eef4fb;
   border-color: #64b5f6;
-}
-
-.motif-draft-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-}
-
-.motif-draft-label {
-  flex: 1;
-  min-width: 180px;
-  font-size: 0.82rem;
-  color: #444;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
 .motif-action-btn {
@@ -620,26 +645,7 @@ body {
   border-color: #cfd8e3;
 }
 
-.motif-active {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 6px;
-  padding: 8px 10px;
-  font-size: 0.8rem;
-  color: #555;
-  background: #fff8e1;
-  border: 1px solid #ffe082;
-  border-radius: 6px;
-}
-
-.motif-active strong {
-  color: #e65100;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-}
-
 .motif-clear-active {
-  margin-left: auto;
   border: none;
   background: transparent;
   color: #888;
@@ -651,6 +657,21 @@ body {
 
 .motif-clear-active:hover {
   color: #333;
+}
+
+.motif-inline-link {
+  border: none;
+  background: none;
+  padding: 0;
+  color: #1565c0;
+  font-size: inherit;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.motif-inline-link:hover {
+  color: #0d47a1;
 }
 
 .fingerprint-matrix {

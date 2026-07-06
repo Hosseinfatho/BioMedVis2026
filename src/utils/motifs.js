@@ -123,12 +123,19 @@ function mergeOccurrences(lists) {
 function isValidMotifChain(steps) {
   for (let i = 1; i < steps.length; i++) {
     if (steps[i].trajectoryIndex <= steps[i - 1].trajectoryIndex) return false;
-    if (steps[i].globalTime <= steps[i - 1].globalTime) return false;
+    // Cross-trajectory steps are ordered by row index; only require
+    // monotonic time when two steps fall on the same trajectory.
+    if (
+      steps[i].trajectoryIndex === steps[i - 1].trajectoryIndex &&
+      steps[i].globalTime <= steps[i - 1].globalTime
+    ) {
+      return false;
+    }
   }
   return true;
 }
 
-// Pick the next transition on a later trajectory, later in global time.
+// Pick the next transition on a strictly later trajectory (row index).
 function findNextChainStep(events, used, reserved, from, to, lastTraj, lastTime) {
   let best = null;
 
@@ -138,7 +145,7 @@ function findNextChainStep(events, used, reserved, from, to, lastTraj, lastTime)
     const ev = events[j];
     if (ev.from !== from || ev.to !== to) continue;
     if (ev.trajectoryIndex <= lastTraj) continue;
-    if (ev.globalTime <= lastTime) continue;
+    if (ev.trajectoryIndex === lastTraj && ev.globalTime <= lastTime) continue;
 
     if (
       !best ||
@@ -199,8 +206,7 @@ export function findIntraTrajectoryMotifOccurrences(
   return occurrences;
 }
 
-// Cross-trajectory chain: each step on a strictly later trajectory (row index)
-// and at a strictly later global time than the previous step.
+// Cross-trajectory chain: each step on a strictly later trajectory (row index).
 // Example 0→1→2→0: 0→1 on traj 10, 1→2 on traj 100, 2→0 on traj 500.
 export function findCrossTrajectoryMotifOccurrences(
   motif,
@@ -318,8 +324,110 @@ export const MOTIF_BUNDLE_COLORS = [
   '#ffed6f',
 ];
 
-export function computeMotifMatrixHighlights(motif, numStates, occurrences) {
+export function attachMatrixColumns(occurrences, matrixSlots) {
+  if (!occurrences?.length) return occurrences || [];
+  if (!matrixSlots?.length) return occurrences;
+
+  const slotToCol = new Map(matrixSlots.map((slot, index) => [slot, index]));
+
+  return occurrences.map((occ) => ({
+    ...occ,
+    steps: occ.steps.map((step) => {
+      const slot = step.slot ?? slotKey(step.rowName);
+      let col = -1;
+      if (slot) {
+        if (slotToCol.has(slot)) col = slotToCol.get(slot);
+        else {
+          const idx = matrixSlots.indexOf(slot);
+          if (idx >= 0) col = idx;
+        }
+      }
+      if (col < 0 && step.col != null && step.col >= 0 && !matrixSlots?.length) {
+        col = step.col;
+      }
+      return { ...step, slot, col };
+    }),
+  }));
+}
+
+export function filterOccurrencesToRows(occurrences, rows) {
+  if (!occurrences?.length || !rows?.length) return occurrences || [];
+
+  const names = new Set(rows.map((row) => row.name));
+  return occurrences.filter((occ) =>
+    occ.steps.every((step) => names.has(step.rowName))
+  );
+}
+
+export function alignedMotifOccurrencesForSystem(
+  motif,
+  rows,
+  matrixSlots,
+  getStates = (row) => row.states || []
+) {
+  if (!motif || !rows?.length) return [];
+  return attachMatrixColumns(
+    filterOccurrencesToRows(
+      findGlobalMotifOccurrences(motif, rows, matrixSlots, getStates),
+      rows
+    ),
+    matrixSlots
+  );
+}
+
+export function motifOccurrencesForSystem(
+  motif,
+  rows,
+  matrixSlots,
+  getStates = (row) => row.states || []
+) {
+  return alignedMotifOccurrencesForSystem(motif, rows, matrixSlots, getStates);
+}
+
+export function motifBundlesForSystem(
+  motif,
+  numStates,
+  rows,
+  matrixSlots,
+  getStates = (row) => row.states || []
+) {
+  if (!motif || !rows?.length) return [];
+
+  const aligned = alignedMotifOccurrencesForSystem(
+    motif,
+    rows,
+    matrixSlots,
+    getStates
+  );
+  return computeMotifMatrixHighlights(
+    motif,
+    numStates,
+    aligned,
+    matrixSlots
+  ).bundles;
+}
+
+export function computeMotifMatrixHighlights(motif, numStates, occurrences, matrixSlots = []) {
   if (!motif || !occurrences?.length) return { bundles: [] };
+
+  const slotToCol = new Map(
+    (matrixSlots || []).map((slot, index) => [slot, index])
+  );
+
+  const resolveCol = (step) => {
+    const slot = step.slot ?? slotKey(step.rowName);
+    if (slot && slotToCol.has(slot)) {
+      return slotToCol.get(slot);
+    }
+    if (slot && matrixSlots?.length) {
+      const idx = matrixSlots.indexOf(slot);
+      if (idx >= 0) return idx;
+    }
+    if (!matrixSlots?.length && step.col != null && step.col >= 0) {
+      return step.col;
+    }
+    return -1;
+  };
 
   const bundles = [];
 
@@ -330,8 +438,9 @@ export function computeMotifMatrixHighlights(motif, numStates, occurrences) {
     for (let stepIdx = 0; stepIdx < occ.steps.length; stepIdx++) {
       const step = occ.steps[stepIdx];
       const row = featureRowIndexForTransition(step.from, step.to, numStates);
-      if (row < 0 || step.col < 0) continue;
-      cells.push({ row, col: step.col, stepIdx });
+      const col = resolveCol(step);
+      if (row < 0 || col < 0) continue;
+      cells.push({ row, col, stepIdx });
     }
 
     if (cells.length !== occ.steps.length) continue;
@@ -346,7 +455,6 @@ export function computeMotifMatrixHighlights(motif, numStates, occurrences) {
       continue;
     }
 
-    // Path: first transition (e.g. 3→1) … last transition (e.g. S2→S3).
     const path = cells.map((cell, i) => ({
       ...cell,
       kind: 'transition',
@@ -358,6 +466,35 @@ export function computeMotifMatrixHighlights(motif, numStates, occurrences) {
   }
 
   return { bundles };
+}
+
+export function motifBundlesForSystems(
+  motif,
+  numStates,
+  systems,
+  matrixSlots,
+  getStates = (row) => row.states || []
+) {
+  if (!motif || !systems?.length) return [];
+
+  const merged = [];
+  let nextIdx = 0;
+
+  for (const rows of systems) {
+    if (!rows?.length) continue;
+    const bundles = motifBundlesForSystem(
+      motif,
+      numStates,
+      rows,
+      matrixSlots,
+      getStates
+    );
+    for (const bundle of bundles) {
+      merged.push({ ...bundle, occurrenceIndex: nextIdx++ });
+    }
+  }
+
+  return merged;
 }
 
 export function computeMotifHighlights(
@@ -373,5 +510,5 @@ export function computeMotifHighlights(
     matrixSlots,
     getStates
   );
-  return computeMotifMatrixHighlights(motif, numStates, occurrences);
+  return computeMotifMatrixHighlights(motif, numStates, occurrences, matrixSlots);
 }

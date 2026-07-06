@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import TrajectoryRows from '../TrajectoryRows';
 import State from '../State';
 import ComparisonHeader from './ComparisonHeader';
-import { findGlobalMotifOccurrences } from '../../utils/motifs';
+import { alignedMotifOccurrencesForSystem } from '../../utils/motifs';
 
 export default function ComparisonRow({
   systemId,
@@ -23,7 +23,7 @@ export default function ComparisonRow({
 
   const globalOccurrences = useMemo(() => {
     if (!activeMotif || !searchRows?.length) return [];
-    return findGlobalMotifOccurrences(
+    return alignedMotifOccurrencesForSystem(
       activeMotif,
       searchRows,
       matrixSlots,
