@@ -1,3 +1,4 @@
+import { getAlignedStates } from './alignment';
 import { slotKey } from './slotKey';
 
 // Builds the ordered list of matrix rows for a given state model:
@@ -24,6 +25,19 @@ export function buildFeatureRows(numStates) {
   }
 
   return featureRows;
+}
+
+// Row index in buildFeatureRows() for a directed transition S{from}->S{to}.
+export function featureRowIndexForTransition(from, to, numStates) {
+  let idx = numStates;
+  for (let a = 0; a < numStates; a++) {
+    for (let b = 0; b < numStates; b++) {
+      if (a === b) continue;
+      if (a === from && b === to) return idx;
+      idx++;
+    }
+  }
+  return -1;
 }
 
 // For a single trajectory (array of per-frame state indices) computes:
@@ -101,7 +115,7 @@ export function aggregateRateFromWindow(
   startCol,
   endCol,
   numStates,
-  { allRows, matrixSlots } = {}
+  { allRows, matrixSlots, alignmentId } = {}
 ) {
   const n = numStates;
   const stateCounts = new Array(n).fill(0);
@@ -119,7 +133,7 @@ export function aggregateRateFromWindow(
       for (const row of allRows) {
         if (slotKey(row.name) !== slot) continue;
         trajCount++;
-        const states = getRowStates(row, 'original');
+        const states = getMatrixStates(row, 'original', alignmentId);
         countChangesInSequence(states, n, transCounts, stateCounts);
       }
     }
@@ -233,4 +247,10 @@ export function getRowStates(row, viewMode) {
     return all;
   }
   return row.states || [];
+}
+
+// Full trajectory or aligned window around a transition/entry event.
+export function getMatrixStates(row, viewMode, alignmentId) {
+  const raw = getRowStates(row, viewMode);
+  return getAlignedStates(raw, alignmentId);
 }

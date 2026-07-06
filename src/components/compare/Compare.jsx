@@ -1,20 +1,30 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { SYSTEMS, MODELS } from '../../config/dataFiles';
 import { loadSystemData } from '../../utils/loadSystemData';
 import {
+  fullView,
+  panView,
+  zoomView,
+} from '../../utils/matrixViewport';
+import {
   computeTrajectoryFeatures,
-  getRowStates,
+  getMatrixStates,
 } from '../../utils/computeTransitionFeatures';
+import {
+  ALIGNMENT_NONE,
+  buildAlignmentOptions,
+} from '../../utils/alignment';
 import { slotKey } from '../../utils/slotKey';
 import InteractiveMatrix from './InteractiveMatrix';
+import MotifPanel from './MotifPanel';
 
-function featuresBySlot(rows, numStates) {
+function featuresBySlot(rows, numStates, alignmentId) {
   const map = new Map();
   rows.forEach((row) => {
     const key = slotKey(row.name);
     const prev = map.get(key);
     if (!prev || row.startTime > prev.startTime) {
-      const states = getRowStates(row, 'original');
+      const states = getMatrixStates(row, 'original', alignmentId);
       map.set(key, {
         startTime: row.startTime,
         features: computeTrajectoryFeatures(states, numStates),
@@ -58,6 +68,8 @@ export default function Compare({
   hoverIndex,
   onHoverChange,
   onSlotsChange,
+  activeMotif,
+  onActiveMotifChange,
 }) {
   const systemIds = Object.keys(SYSTEMS);
   const [systemA, setSystemA] = useState(defaultA || systemIds[0]);
@@ -68,6 +80,23 @@ export default function Compare({
   const [dataB, setDataB] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [alignmentId, setAlignmentId] = useState(ALIGNMENT_NONE);
+  const [matrixView, setMatrixView] = useState({ viewStart: 0, viewCount: 0 });
+
+  const alignmentOptions = useMemo(
+    () => buildAlignmentOptions(numStates),
+    [numStates]
+  );
+
+  useEffect(() => {
+    if (!alignmentOptions.some((o) => o.id === alignmentId)) {
+      setAlignmentId(ALIGNMENT_NONE);
+    }
+  }, [alignmentOptions, alignmentId]);
+
+  useEffect(() => {
+    onActiveMotifChange?.(null);
+  }, [numStates, onActiveMotifChange]);
 
   // Matrices always use original per-trajectory data; chart view mode does not
   // affect columns, brush, or Rate aggregation.
@@ -114,8 +143,8 @@ export default function Compare({
       };
     }
 
-    const mapA = featuresBySlot(dataA, numStates);
-    const mapB = dataB ? featuresBySlot(dataB, numStates) : new Map();
+    const mapA = featuresBySlot(dataA, numStates, alignmentId);
+    const mapB = dataB ? featuresBySlot(dataB, numStates, alignmentId) : new Map();
     const tKeys = transitionKeys(numStates);
 
     const slots = [];
@@ -172,7 +201,12 @@ export default function Compare({
           (a.transitionRatios[key] || 0) - (b.transitionRatios[key] || 0)
         );
       }
-      cD.push({ stateVals: stateDiff, transitionVals: transitionDiff });
+      cD.push({
+        stateVals: stateDiff,
+        transitionVals: transitionDiff,
+        states: a.states,
+        statesB: b.states,
+      });
     }
 
     return {
@@ -182,7 +216,7 @@ export default function Compare({
       colCount: slots.length,
       matrixSlots: slots,
     };
-  }, [dataA, dataB, numStates]);
+  }, [dataA, dataB, numStates, alignmentId]);
 
   useEffect(() => {
     onSlotsChange?.(matrixSlots);
@@ -190,8 +224,37 @@ export default function Compare({
 
   // reset the shared window to cover all trajectories whenever the data changes
   useEffect(() => {
-    if (colCount > 0) onSelectionChange?.({ start: 0, end: colCount - 1 });
+    if (colCount > 0) {
+      onSelectionChange?.({ start: 0, end: colCount - 1 });
+      setMatrixView(fullView(colCount));
+    }
   }, [colCount, onSelectionChange]);
+
+  const handleMatrixViewChange = useCallback(
+    ({ anchorCol, deltaY, shiftKey }) => {
+      if (colCount <= 0) return;
+
+      setMatrixView((prev) => {
+        const current = prev.viewCount || colCount;
+        let next;
+        if (shiftKey && current < colCount) {
+          const step = Math.max(1, Math.round(current * 0.1));
+          const deltaCols = deltaY > 0 ? step : -step;
+          next = panView(prev.viewStart, current, colCount, deltaCols);
+        } else {
+          next = zoomView(prev.viewStart, current, colCount, anchorCol, deltaY);
+        }
+
+        onSelectionChange?.({
+          start: next.viewStart,
+          end: next.viewStart + next.viewCount - 1,
+        });
+
+        return next;
+      });
+    },
+    [colCount, onSelectionChange]
+  );
 
   const sameSystem = systemA === systemB;
   const showResult = applied && !loading && !error && !sameSystem;
@@ -228,7 +291,24 @@ export default function Compare({
         >
           {loading ? 'Loading…' : 'Compare'}
         </button>
+        <label className="compare-select compare-alignment">
+          Alignment
+          <select
+            value={alignmentId}
+            onChange={(e) => setAlignmentId(e.target.value)}
+          >
+            {alignmentOptions.map((opt) => (
+              <option key={opt.id} value={opt.id}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
+
+      {!loading && !error && dataA && (
+        <MotifPanel numStates={numStates} onActiveMotifChange={onActiveMotifChange} />
+      )}
 
       {error && <div className="error-banner">{error}</div>}
       {loading && <div className="empty-state">Loading…</div>}
@@ -243,12 +323,17 @@ export default function Compare({
           <InteractiveMatrix
             columns={columnsA}
             numStates={numStates}
+            alignmentId={alignmentId}
+            activeMotif={activeMotif}
             selection={selection}
             onSelectionChange={onSelectionChange}
             hoverIndex={hoverIndex}
             onHoverChange={onHoverChange}
             trajectoryRows={dataA}
             matrixSlots={matrixSlots}
+            viewStart={matrixView.viewStart}
+            viewCount={matrixView.viewCount || colCount}
+            onViewChange={handleMatrixViewChange}
             showRateTitle
           />
         </>
@@ -264,12 +349,17 @@ export default function Compare({
           <InteractiveMatrix
             columns={columnsB}
             numStates={numStates}
+            alignmentId={alignmentId}
+            activeMotif={activeMotif}
             selection={selection}
             onSelectionChange={onSelectionChange}
             hoverIndex={hoverIndex}
             onHoverChange={onHoverChange}
             trajectoryRows={dataB}
             matrixSlots={matrixSlots}
+            viewStart={matrixView.viewStart}
+            viewCount={matrixView.viewCount || colCount}
+            onViewChange={handleMatrixViewChange}
           />
 
           <div className="compare-title">
@@ -278,6 +368,8 @@ export default function Compare({
           <InteractiveMatrix
             columns={columnsDiff}
             numStates={numStates}
+            alignmentId={alignmentId}
+            activeMotif={activeMotif}
             selection={selection}
             onSelectionChange={onSelectionChange}
             hoverIndex={hoverIndex}
@@ -285,6 +377,9 @@ export default function Compare({
             trajectoryRows={dataA}
             trajectoryRowsB={dataB}
             matrixSlots={matrixSlots}
+            viewStart={matrixView.viewStart}
+            viewCount={matrixView.viewCount || colCount}
+            onViewChange={handleMatrixViewChange}
             rateMode="diff"
           />
         </>

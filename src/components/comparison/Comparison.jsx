@@ -7,6 +7,7 @@ export default function Comparison({
   selection,
   hoverIndex,
   matrixSlots,
+  activeMotif,
 }) {
   if (!systemData.length) return null;
 
@@ -24,6 +25,7 @@ export default function Comparison({
           selection={selection}
           hoverIndex={hoverIndex}
           matrixSlots={matrixSlots}
+          activeMotif={activeMotif}
         />
       ))}
     </div>

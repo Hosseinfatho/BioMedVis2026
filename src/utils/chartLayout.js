@@ -247,3 +247,98 @@ export function drawConcatenatedHoverCrosshair(
     t1: hit.segment.concatStart + len,
   });
 }
+
+// Draw each complete motif as one bundle: connector in motif order + step bands.
+export function drawAllMotifBundles(ctx, x, rows, occurrences, getRowY, rowPx = ROW_PX) {
+  if (!occurrences?.length || !rows?.length) return;
+
+  const rowByName = new Map(rows.map((r, i) => [r.name, i]));
+  const bundleColors = ['#e65100', '#1565c0', '#6a1b9a', '#2e7d32', '#c62828'];
+
+  for (let occIdx = 0; occIdx < occurrences.length; occIdx++) {
+    const occ = occurrences[occIdx];
+    const color = bundleColors[occIdx % bundleColors.length];
+
+    let valid = true;
+    for (let i = 1; i < occ.steps.length; i++) {
+      const prev = occ.steps[i - 1];
+      const cur = occ.steps[i];
+      if (cur.globalTime <= prev.globalTime) {
+        valid = false;
+        break;
+      }
+      if (cur.trajectoryIndex <= prev.trajectoryIndex) {
+        valid = false;
+        break;
+      }
+    }
+    if (!valid) continue;
+
+    const points = [];
+    for (let stepIdx = 0; stepIdx < occ.steps.length; stepIdx++) {
+      const step = occ.steps[stepIdx];
+      const rowIdx = rowByName.get(step.rowName);
+      if (rowIdx === undefined) {
+        valid = false;
+        break;
+      }
+
+      const y = getRowY(rowIdx);
+      const bandLeft = step.globalTime - 1;
+      const bandRight = step.globalTime + 1;
+      const x0 = x(Math.min(bandLeft, X_MAX));
+      const x1 = x(Math.min(bandRight, X_MAX));
+      const midT = step.globalTime - 0.5;
+      points.push({
+        x0,
+        x1,
+        y,
+        px: x(Math.min(midT, X_MAX)),
+        py: y + rowPx / 2,
+        stepIdx,
+        step,
+      });
+    }
+
+    if (!valid || points.length !== occ.steps.length) continue;
+
+    // Connector underneath bands — follows motif step order (2→1 then 1→0).
+    if (points.length >= 2) {
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 3;
+      ctx.setLineDash([6, 4]);
+      ctx.beginPath();
+      ctx.moveTo(points[0].px, points[0].py);
+      for (let i = 1; i < points.length; i++) {
+        ctx.lineTo(points[i].px, points[i].py);
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+    }
+
+    for (const p of points) {
+      const w = Math.max(2, p.x1 - p.x0);
+
+      ctx.save();
+      ctx.fillStyle = 'rgba(255, 193, 7, 0.55)';
+      ctx.fillRect(p.x0, p.y - 2, w, rowPx + 4);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(p.x0 + 0.5, p.y - 1.5, w - 1, rowPx + 3);
+      ctx.restore();
+
+      ctx.save();
+      ctx.fillStyle = color;
+      ctx.font = 'bold 9px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText(String(p.stepIdx + 1), p.px, p.y - 3);
+      ctx.beginPath();
+      ctx.arc(p.px, p.py, 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+}

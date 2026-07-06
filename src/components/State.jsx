@@ -11,6 +11,7 @@ import {
   drawHoverCrosshair,
   drawConcatenatedSelectionBand,
   drawConcatenatedHoverCrosshair,
+  drawAllMotifBundles,
   rowTimeBounds,
 } from '../utils/chartLayout';
 
@@ -73,6 +74,7 @@ export default function State({
   selection = null,
   hoverIndex = null,
   matrixSlots = [],
+  globalOccurrences = null,
 }) {
   const canvasRef = useRef(null);
   const wrapRef = useRef(null);
@@ -111,6 +113,9 @@ export default function State({
       drawConcatenatedStates(ctx, x, rows);
     } else {
       drawOriginalStates(ctx, x, rows);
+      if (globalOccurrences?.length) {
+        drawAllMotifBundles(ctx, x, rows, globalOccurrences, rowY, ROW_PX);
+      }
     }
 
     ctx.fillStyle = '#555';
@@ -163,7 +168,7 @@ export default function State({
         );
       }
     }
-  }, [rows, width, viewMode, originalRows, selection, hoverIndex, matrixSlots]);
+  }, [rows, width, viewMode, originalRows, selection, hoverIndex, matrixSlots, globalOccurrences]);
 
   useEffect(() => {
     draw();

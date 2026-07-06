@@ -18,6 +18,7 @@ export default function App() {
   // hovered trajectory column, highlighted as a crosshair on the charts
   const [hoverIndex, setHoverIndex] = useState(null);
   const [matrixSlots, setMatrixSlots] = useState([]);
+  const [activeMotif, setActiveMotif] = useState(null);
 
   const numStates = MODELS[selectedModel].numStates;
 
@@ -77,6 +78,7 @@ export default function App() {
         selection={selection}
         hoverIndex={hoverIndex}
         matrixSlots={matrixSlots}
+        activeMotif={activeMotif}
       />
 
       {generated && (
@@ -90,6 +92,8 @@ export default function App() {
           hoverIndex={hoverIndex}
           onHoverChange={setHoverIndex}
           onSlotsChange={setMatrixSlots}
+          activeMotif={activeMotif}
+          onActiveMotifChange={setActiveMotif}
         />
       )}
     </div>

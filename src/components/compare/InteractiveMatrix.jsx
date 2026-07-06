@@ -1,17 +1,18 @@
 import { useRef, useState, useEffect, useMemo, useCallback } from 'react';
-import { aggregateRateFromWindow, diffRateMatrices } from '../../utils/computeTransitionFeatures';
+import { aggregateRateFromWindow, diffRateMatrices, getMatrixStates } from '../../utils/computeTransitionFeatures';
+import {
+  computeMotifMatrixHighlights,
+  findGlobalMotifOccurrences,
+} from '../../utils/motifs';
+import { rateAggregationWindow, visibleSelection } from '../../utils/matrixViewport';
 import RatioMatrix from './RatioMatrix';
 import RateMatrix from './RateMatrix';
-import { LABEL_W, RIGHT_PAD } from './layout';
+import { LABEL_W, COL_HEADER_H, RIGHT_PAD } from './layout';
 
-// Wraps a RatioMatrix with a resizable selection window (brush) over the
-// trajectory columns. To the right it shows an N x N state/transition
-// percentage heatmap aggregated over the selected trajectories. The selection
-// is controlled from above so every matrix and the trajectory/state charts
-// stay in sync; it starts covering the whole matrix (all trajectories).
 export default function InteractiveMatrix({
   columns,
   numStates,
+  alignmentId,
   selection,
   onSelectionChange,
   hoverIndex,
@@ -19,6 +20,10 @@ export default function InteractiveMatrix({
   trajectoryRows,
   trajectoryRowsB,
   matrixSlots,
+  activeMotif,
+  viewStart,
+  viewCount,
+  onViewChange,
   rateMode = 'absolute',
   showRate = true,
   showRateTitle = false,
@@ -31,10 +36,14 @@ export default function InteractiveMatrix({
   const sel = selection || { start: 0, end: Math.max(0, numCols - 1) };
   const setSel = onSelectionChange || (() => {});
 
-  // keep the latest selection in a ref so the global drag listeners always read
-  // fresh values without being torn down on every change
   const selRef = useRef(sel);
   selRef.current = sel;
+
+  const visibleCount = viewCount ?? numCols;
+  const colW =
+    numCols > 0 && visibleCount > 0
+      ? (plotW - LABEL_W - RIGHT_PAD) / visibleCount
+      : 0;
 
   useEffect(() => {
     const el = plotRef.current;
@@ -49,16 +58,22 @@ export default function InteractiveMatrix({
     return () => ro.disconnect();
   }, []);
 
-  const colW = numCols > 0 ? (plotW - LABEL_W - RIGHT_PAD) / numCols : 0;
-
   const colAt = useCallback(
     (clientX) => {
       const rect = plotRef.current.getBoundingClientRect();
       const x = clientX - rect.left;
-      const c = Math.floor((x - LABEL_W) / colW);
-      return Math.max(0, Math.min(numCols - 1, c));
+      const plotWLocal = plotW;
+      const cw =
+        numCols > 0 && visibleCount > 0
+          ? (plotWLocal - LABEL_W - RIGHT_PAD) / visibleCount
+          : 0;
+      if (cw <= 0) return 0;
+
+      const localC = Math.floor((x - LABEL_W) / cw);
+      const globalC = viewStart + localC;
+      return Math.max(0, Math.min(numCols - 1, globalC));
     },
-    [colW, numCols]
+    [numCols, visibleCount, viewStart, plotW]
   );
 
   useEffect(() => {
@@ -114,7 +129,6 @@ export default function InteractiveMatrix({
   };
   const clearHover = () => onHoverChange?.(null);
 
-  // click-drag on empty brush area draws a fresh window
   const startNew = (e) => {
     if (e.target !== e.currentTarget) return;
     e.preventDefault();
@@ -123,27 +137,55 @@ export default function InteractiveMatrix({
     dragRef.current = { mode: 'right', anchorCol: c, origStart: c, origEnd: c };
   };
 
-  const winStart = selection?.start ?? 0;
-  const winEnd = selection?.end ?? Math.max(0, numCols - 1);
+  const onWheel = useCallback(
+    (e) => {
+      if (!onViewChange || numCols <= 0) return;
+      e.preventDefault();
+
+      const anchorCol = colAt(e.clientX);
+      onViewChange({ anchorCol, deltaY: e.deltaY, shiftKey: e.shiftKey });
+    },
+    [colAt, numCols, onViewChange]
+  );
+
+  useEffect(() => {
+    const el = plotRef.current;
+    if (!el || !onViewChange) return;
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, [onWheel, onViewChange]);
+
+  const { start: rateStart, end: rateEnd } = useMemo(
+    () =>
+      rateAggregationWindow(
+        viewStart ?? 0,
+        visibleCount,
+        selection,
+        numCols
+      ),
+    [viewStart, visibleCount, selection, numCols]
+  );
 
   const rateA = useMemo(
     () =>
-      aggregateRateFromWindow(winStart, winEnd, numStates, {
+      aggregateRateFromWindow(rateStart, rateEnd, numStates, {
         allRows: trajectoryRows,
         matrixSlots,
+        alignmentId,
       }),
-    [winStart, winEnd, numStates, trajectoryRows, matrixSlots]
+    [rateStart, rateEnd, numStates, trajectoryRows, matrixSlots, alignmentId]
   );
 
   const rateB = useMemo(
     () =>
       rateMode === 'diff' && trajectoryRowsB
-        ? aggregateRateFromWindow(winStart, winEnd, numStates, {
+        ? aggregateRateFromWindow(rateStart, rateEnd, numStates, {
             allRows: trajectoryRowsB,
             matrixSlots,
+            alignmentId,
           })
         : null,
-    [winStart, winEnd, numStates, trajectoryRowsB, matrixSlots, rateMode]
+    [rateStart, rateEnd, numStates, trajectoryRowsB, matrixSlots, rateMode, alignmentId]
   );
 
   const rate =
@@ -151,32 +193,75 @@ export default function InteractiveMatrix({
       ? diffRateMatrices(rateA, rateB, numStates)
       : rateA;
 
-  const left = LABEL_W + winStart * colW;
-  const wsel = (winEnd - winStart + 1) * colW;
+  const motifSearchRows = useMemo(() => {
+    if (rateMode === 'diff' && trajectoryRowsB?.length) {
+      return [...(trajectoryRows || []), ...trajectoryRowsB];
+    }
+    return trajectoryRows || [];
+  }, [rateMode, trajectoryRows, trajectoryRowsB]);
+
+  const globalOccurrences = useMemo(() => {
+    if (!activeMotif || !motifSearchRows.length) return [];
+    return findGlobalMotifOccurrences(
+      activeMotif,
+      motifSearchRows,
+      matrixSlots,
+      (row) => row.states || []
+    );
+  }, [activeMotif, motifSearchRows, matrixSlots]);
+
+  const { cells: highlightCells } = useMemo(
+    () => computeMotifMatrixHighlights(activeMotif, numStates, globalOccurrences),
+    [activeMotif, numStates, globalOccurrences]
+  );
+
+  const cw =
+    numCols > 0 && visibleCount > 0
+      ? (plotW - LABEL_W - RIGHT_PAD) / visibleCount
+      : 0;
+
+  const visSel = visibleSelection(
+    selection,
+    viewStart,
+    visibleCount
+  );
+
+  const brushTop = COL_HEADER_H;
+  const left = visSel ? LABEL_W + visSel.localStart * cw : 0;
+  const wsel = visSel ? (visSel.localEnd - visSel.localStart + 1) * cw : 0;
+
+  const hoverVisible =
+    hoverIndex != null &&
+    hoverIndex >= viewStart &&
+    hoverIndex < viewStart + visibleCount;
 
   return (
     <div className="interactive-matrix">
-      <div className="im-plot" ref={plotRef}>
-        <RatioMatrix columns={columns} numStates={numStates} />
+      <div className="im-plot im-plot-zoomable" ref={plotRef}>
+        <RatioMatrix
+          columns={columns}
+          numStates={numStates}
+          highlightCells={highlightCells}
+          viewStart={viewStart}
+          viewCount={visibleCount}
+        />
         <div
           className="im-brush-layer"
+          style={{ top: `${brushTop}px` }}
           onMouseDown={startNew}
           onMouseMove={reportHover}
           onMouseLeave={clearHover}
         >
-          {numCols > 0 &&
-            hoverIndex != null &&
-            hoverIndex >= 0 &&
-            hoverIndex < numCols && (
-              <div
-                className="im-hover-col"
-                style={{
-                  left: `${LABEL_W + hoverIndex * colW}px`,
-                  width: `${colW}px`,
-                }}
-              />
-            )}
-          {numCols > 0 && (
+          {numCols > 0 && hoverVisible && (
+            <div
+              className="im-hover-col"
+              style={{
+                left: `${LABEL_W + (hoverIndex - viewStart) * cw}px`,
+                width: `${cw}px`,
+              }}
+            />
+          )}
+          {numCols > 0 && visSel && (
             <div
               className="im-selection"
               style={{ left: `${left}px`, width: `${wsel}px` }}
