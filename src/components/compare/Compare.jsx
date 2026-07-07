@@ -21,7 +21,7 @@ import { slotKey } from '../../utils/slotKey';
 import InteractiveMatrix from './InteractiveMatrix';
 import MotifPanel from './MotifPanel';
 import Trace from '../Trace';
-import Simulation3DPanel from '../3Dsimulation/Simulation3DPanel';
+import Analysis3D from '../Analysis3D/Analysis3D';
 
 function featuresBySlot(rows, numStates, alignmentId) {
   const map = new Map();
@@ -455,12 +455,7 @@ export default function Compare({
       )}
 
       {!loading && !error && dataA && (
-        <Simulation3DPanel
-          systemId={systemA}
-          numStates={numStates}
-          trajectoryRows={dataA}
-          selection={selection}
-        />
+        <Analysis3D systemId={systemA} trajectoryRows={dataA} />
       )}
     </div>
   );

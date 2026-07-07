@@ -1201,114 +1201,172 @@ body {
   cursor: pointer;
 }
 
-/* ---- 3D simulation panel ---- */
-.simulation-3d-panel {
-  margin: var(--section-gap) 0 0;
+/* ---- Analysis3D (3D residue analysis) ---- */
+.analysis-3d-section {
+  display: flex;
+  align-items: flex-start;
+  width: 100%;
+  margin-top: var(--section-gap);
+  border-top: 1px solid #000;
+}
+
+.analysis-3d {
+  flex: 0 0 50%;
+  width: 50%;
+  max-width: 50%;
+  min-width: 0;
+  box-sizing: border-box;
+  margin: 0;
   padding: var(--panel-pad);
   background: #fff;
   border: 1px solid #dde1e8;
   border-radius: 6px;
-  border-top: 1px solid #000;
+  border-top: none;
 }
 
-.simulation-3d-panel-header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 6px;
-  margin-bottom: var(--inner-gap);
+@media (max-width: 900px) {
+  .analysis-3d {
+    flex: 0 0 100%;
+    width: 100%;
+    max-width: 100%;
+  }
 }
 
-.simulation-3d-panel-title {
+.analysis-3d-header {
+  margin-bottom: 4px;
+}
+
+.analysis-3d-title {
   margin: 0;
   font-size: 0.95rem;
   font-weight: 600;
   line-height: 1.2;
 }
 
-.simulation-3d-panel-subtitle {
-  color: #666;
-  font-size: 0.75rem;
-  line-height: 1.2;
-}
-
-.simulation-3d-layout {
-  display: grid;
-  grid-template-columns: minmax(260px, 360px) minmax(320px, 1fr);
-  gap: var(--block-gap);
-  align-items: start;
-}
-
-@media (max-width: 1100px) {
-  .simulation-3d-layout {
-    grid-template-columns: 1fr;
-  }
-}
-
-.simulation-3d-viewer-col {
-  min-width: 0;
-}
-
-.simulation-3d-charts-col {
-  display: flex;
-  flex-direction: column;
-  gap: var(--inner-gap);
-  max-height: 520px;
-  overflow-y: auto;
-  padding-right: 2px;
-}
-
-.molecule-viewer-3d {
+.viewer-3d {
   border: 1px solid #e2e6ee;
   border-radius: 6px;
-  background: #f8fafc;
+  background: var(--compare-matrix-bg, #fafafa);
   padding: var(--inner-gap);
 }
 
-.molecule-viewer-3d-header {
+.viewer-3d-body {
   display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--inner-gap);
-  margin-bottom: 2px;
+  align-items: stretch;
+  gap: 8px;
+  min-height: 0;
 }
 
-.molecule-viewer-3d-meta {
-  color: #666;
-  font-size: 0.82rem;
-}
-
-.molecule-viewer-3d-canvas {
+.viewer-3d-canvas {
+  flex: 1 1 auto;
+  min-width: 0;
   width: 100%;
-  height: 240px;
+  height: min(420px, 52vh);
   position: relative;
   border-radius: 4px;
   overflow: hidden;
-  background: #fff;
+  background: #fafafa;
 }
 
-.molecule-viewer-3d-status,
-.molecule-viewer-3d-error {
+.viewer-3d-colorbar {
+  flex: 0 0 56px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  font-size: 0.72rem;
+  line-height: 1.2;
+  color: #555;
+  padding: 2px 0;
+}
+
+.viewer-3d-colorbar-title {
+  font-weight: 600;
+  color: #666;
+  text-align: center;
+}
+
+.viewer-3d-colorbar-track {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: stretch;
+  gap: 5px;
+  min-height: min(420px, 52vh);
+}
+
+.viewer-3d-colorbar-gradient {
+  flex: 0 0 14px;
+  border-radius: 3px;
+  border: 1px solid #c8ced8;
+}
+
+.viewer-3d-colorbar-labels {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 1px 0;
+  white-space: nowrap;
+}
+
+.viewer-3d-state-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.8rem;
+  color: #444;
+  flex: 0 0 auto;
+}
+
+.viewer-3d-state-field-label {
+  line-height: 1;
+}
+
+.viewer-3d-state-value {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  padding: 4px 10px;
+  border: 1px solid;
+  border-radius: 4px;
+  background: #fff;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.viewer-3d-status,
+.viewer-3d-error {
   margin-bottom: 2px;
   font-size: 0.8rem;
 }
 
-.molecule-viewer-3d-error {
+.viewer-3d-error {
   color: #b42318;
 }
 
-.trajectory-selector {
+.viewer-3d-controls {
   display: flex;
-  flex-direction: column;
-  gap: var(--inner-gap);
-  margin-bottom: var(--inner-gap);
-  padding: var(--inner-gap);
-  border: 1px solid #e2e6ee;
-  border-radius: 6px;
-  background: #fff;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px 12px;
+  margin-bottom: 6px;
+  padding: 0;
+  border: none;
+  background: transparent;
 }
 
-.trajectory-selector-field {
+.viewer-3d-controls .viewer-3d-field {
+  flex: 1 1 180px;
+  min-width: 0;
+  max-width: 280px;
+}
+
+.viewer-3d-controls .viewer-3d-field select {
+  width: 100%;
+}
+
+.viewer-3d-field {
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -1316,47 +1374,13 @@ body {
   color: #444;
 }
 
-.trajectory-selector-field select,
-.trajectory-selector-field input[type='number'] {
+.viewer-3d-field select {
   font: inherit;
   padding: 4px 8px;
   border: 1px solid #ccd2dc;
   border-radius: 4px;
   background: #fff;
-}
-
-.trajectory-selector-field select {
   width: 100%;
-}
-
-.trajectory-selector-frame {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.trajectory-selector-frame input[type='range'] {
-  flex: 1;
-  min-width: 0;
-}
-
-.trajectory-selector-frame input[type='number'] {
-  width: 64px;
-}
-
-.trajectory-selector-frame-total {
-  color: #777;
-  font-size: 0.78rem;
-  white-space: nowrap;
-}
-
-.trajectory-selector-state {
-  font-size: 0.8rem;
-  color: #555;
-}
-
-.trajectory-selector-state-of {
-  color: #888;
 }
 
 .task-chart {
