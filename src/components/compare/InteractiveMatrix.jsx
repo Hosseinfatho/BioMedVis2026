@@ -24,6 +24,7 @@ export default function InteractiveMatrix({
   viewStart,
   viewCount,
   onViewChange,
+  onColumnActivate,
   rateMode = 'absolute',
   showRate = true,
   showRateTitle = false,
@@ -130,6 +131,7 @@ export default function InteractiveMatrix({
     e.preventDefault();
     const c = colAt(e.clientX);
     setSel({ start: c, end: c });
+    onColumnActivate?.(c);
     dragRef.current = { mode: 'right', anchorCol: c, origStart: c, origEnd: c };
   };
 

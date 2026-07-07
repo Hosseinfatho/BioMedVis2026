@@ -1250,6 +1250,24 @@ body {
   padding: var(--inner-gap);
 }
 
+.viewer-3d-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+  min-width: 0;
+}
+
+.viewer-3d-title {
+  flex: 0 0 auto;
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  color: #222;
+}
+
 .viewer-3d-body {
   display: flex;
   align-items: stretch;
@@ -1308,52 +1326,50 @@ body {
   white-space: nowrap;
 }
 
-.viewer-3d-state-field {
+.viewer-3d-controls {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-bottom: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+}
+
+.viewer-3d-select {
+  flex: 1 1 0;
+  min-width: 0;
+  font: inherit;
   font-size: 0.8rem;
-  color: #444;
-  flex: 0 0 auto;
+  padding: 4px 8px;
+  border: 1px solid #ccd2dc;
+  border-radius: 4px;
+  background: #fff;
+  color: #222;
 }
 
-.viewer-3d-state-field-label {
-  line-height: 1;
+.viewer-3d-select--frame {
+  flex: 0 0 72px;
+  max-width: 88px;
 }
 
-.viewer-3d-state-value {
+.viewer-3d-state-badge {
+  flex: 0 0 52px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 44px;
-  padding: 4px 10px;
+  min-height: 28px;
+  padding: 4px 8px;
   border: 1px solid;
   border-radius: 4px;
   background: #fff;
   font-weight: 600;
-  font-size: 0.85rem;
-}
-
-.viewer-3d-status,
-.viewer-3d-error {
-  margin-bottom: 2px;
   font-size: 0.8rem;
-}
-
-.viewer-3d-error {
-  color: #b42318;
-}
-
-.viewer-3d-controls {
-  display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 8px 12px;
-  margin-bottom: 6px;
-  padding: 0;
-  border: none;
-  background: transparent;
+  box-sizing: border-box;
 }
 
 .viewer-3d-controls .viewer-3d-field {
@@ -1381,6 +1397,16 @@ body {
   border-radius: 4px;
   background: #fff;
   width: 100%;
+}
+
+.viewer-3d-status,
+.viewer-3d-error {
+  margin-bottom: 2px;
+  font-size: 0.8rem;
+}
+
+.viewer-3d-error {
+  color: #b42318;
 }
 
 .task-chart {

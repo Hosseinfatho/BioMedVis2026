@@ -18,10 +18,13 @@ import {
   motifBundlesForSystem,
 } from '../../utils/motifs';
 import { slotKey } from '../../utils/slotKey';
+import { trajectoriesByMatrixSlot } from '../../utils/matrixRepresentativeRows';
 import InteractiveMatrix from './InteractiveMatrix';
 import MotifPanel from './MotifPanel';
 import Trace from '../Trace';
 import Analysis3D from '../Analysis3D/Analysis3D';
+
+const SYSTEM_IDS = Object.keys(SYSTEMS);
 
 function featuresBySlot(rows, numStates, alignmentId) {
   const map = new Map();
@@ -78,17 +81,18 @@ export default function Compare({
   hoveredMotif,
   onMotifHoverChange,
 }) {
-  const systemIds = Object.keys(SYSTEMS);
-  const [systemA, setSystemA] = useState(defaultA || systemIds[0]);
-  const [systemB, setSystemB] = useState(defaultB || systemIds[1] || systemIds[0]);
+  const [systemA, setSystemA] = useState(defaultA || SYSTEM_IDS[0]);
+  const [systemB, setSystemB] = useState(defaultB || SYSTEM_IDS[1] || SYSTEM_IDS[0]);
   // the difference view only appears after the user presses "Compare"
   const [applied, setApplied] = useState(false);
+  const [systemsData, setSystemsData] = useState({});
   const [dataA, setDataA] = useState(null);
   const [dataB, setDataB] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [alignmentId, setAlignmentId] = useState(ALIGNMENT_NONE);
   const [matrixView, setMatrixView] = useState({ viewStart: 0, viewCount: 0 });
+  const [residueViewerTarget, setResidueViewerTarget] = useState(null);
 
   const alignmentOptions = useMemo(
     () => buildAlignmentOptions(numStates),
@@ -113,20 +117,19 @@ export default function Compare({
     setLoading(true);
     setError(null);
 
-    Promise.all([
-      loadSystemData(systemA, selectedModel, 'original'),
-      loadSystemData(systemB, selectedModel, 'original'),
-    ])
-      .then(([a, b]) => {
+    Promise.all(
+      SYSTEM_IDS.map((id) =>
+        loadSystemData(id, selectedModel, 'original').then((rows) => [id, rows])
+      )
+    )
+      .then((entries) => {
         if (cancelled) return;
-        setDataA(a);
-        setDataB(b);
+        setSystemsData(Object.fromEntries(entries));
       })
       .catch((err) => {
         if (cancelled) return;
         setError(err.message);
-        setDataA(null);
-        setDataB(null);
+        setSystemsData({});
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -135,7 +138,17 @@ export default function Compare({
     return () => {
       cancelled = true;
     };
-  }, [systemA, systemB, selectedModel]);
+  }, [selectedModel]);
+
+  useEffect(() => {
+    if (!Object.keys(systemsData).length) {
+      setDataA(null);
+      setDataB(null);
+      return;
+    }
+    setDataA(systemsData[systemA] ?? null);
+    setDataB(systemsData[systemB] ?? null);
+  }, [systemA, systemB, systemsData]);
 
   // A single shared column order (System A's natural order, then any B-only
   // slots) so System A, System B and the difference line up home-by-home.
@@ -256,6 +269,21 @@ export default function Compare({
     return merged;
   }, [activeMotif, motifBundlesA, motifBundlesB]);
 
+  const activateResidueViewer = useCallback(
+    (systemId, rows) => (colIndex) => {
+      if (!rows?.length || colIndex < 0 || colIndex >= matrixSlots.length) return;
+      const trajs = trajectoriesByMatrixSlot(rows, matrixSlots);
+      const row = trajs[colIndex];
+      if (!row?.name) return;
+      setResidueViewerTarget({
+        systemId,
+        trajectoryName: row.name,
+        frameIndex: 0,
+      });
+    },
+    [matrixSlots]
+  );
+
   useEffect(() => {
     onSlotsChange?.(matrixSlots);
   }, [matrixSlots, onSlotsChange]);
@@ -303,7 +331,7 @@ export default function Compare({
         <label className="compare-select">
           System A
           <select value={systemA} onChange={(e) => setSystemA(e.target.value)}>
-            {systemIds.map((id) => (
+            {SYSTEM_IDS.map((id) => (
               <option key={id} value={id}>
                 {SYSTEMS[id].label}
               </option>
@@ -314,7 +342,7 @@ export default function Compare({
         <label className="compare-select">
           System B
           <select value={systemB} onChange={(e) => setSystemB(e.target.value)}>
-            {systemIds.map((id) => (
+            {SYSTEM_IDS.map((id) => (
               <option key={id} value={id}>
                 {SYSTEMS[id].label}
               </option>
@@ -398,6 +426,7 @@ export default function Compare({
             viewStart={matrixView.viewStart}
             viewCount={matrixView.viewCount || colCount}
             onViewChange={handleMatrixViewChange}
+            onColumnActivate={activateResidueViewer(systemA, dataA)}
             showColumnLabels
             sideLabel={SYSTEMS[systemA].label}
           />
@@ -423,6 +452,7 @@ export default function Compare({
                 viewStart={matrixView.viewStart}
                 viewCount={matrixView.viewCount || colCount}
                 onViewChange={handleMatrixViewChange}
+                onColumnActivate={activateResidueViewer(systemB, dataB)}
                 sideLabel={SYSTEMS[systemB].label}
               />
 
@@ -446,6 +476,7 @@ export default function Compare({
                 viewStart={matrixView.viewStart}
                 viewCount={matrixView.viewCount || colCount}
                 onViewChange={handleMatrixViewChange}
+                onColumnActivate={activateResidueViewer(systemA, dataA)}
                 rateMode="diff"
                 sideLabel="Difference"
               />
@@ -454,8 +485,12 @@ export default function Compare({
         </div>
       )}
 
-      {!loading && !error && dataA && (
-        <Analysis3D systemId={systemA} trajectoryRows={dataA} />
+      {!loading && !error && Object.keys(systemsData).length > 0 && (
+        <Analysis3D
+          systemsData={systemsData}
+          defaultSystemId={systemA}
+          viewerTarget={residueViewerTarget}
+        />
       )}
     </div>
   );
