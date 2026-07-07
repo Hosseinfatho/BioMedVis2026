@@ -6,7 +6,12 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "preprocess:frame-index": "node src/preprocess/runFrameIndex.js",
+    "preprocess:trajectory-features": "node src/preprocess/runTrajectoryFeatures.js",
+    "preprocess:frame-structural": "node src/preprocess/runFrameStructuralFeatures.js",
+    "preprocess:state-summaries": "node src/preprocess/runStateSummaries.js",
+    "preprocess:representative-frames": "node src/preprocess/runRepresentativeFrames.js"
   },
   "dependencies": {
     "3dmol": "^2.5.5",
