@@ -9,9 +9,9 @@ import {
   visibleSelection,
 } from '../utils/matrixViewport';
 
-export const TRACE_HEIGHT = 100;
-const MARGIN_TOP = 8;
-const MARGIN_BOTTOM = 22;
+export const TRACE_HEIGHT = 80;
+const MARGIN_TOP = 4;
+const MARGIN_BOTTOM = 4;
 const MAX_PTS_PER_COL = 48;
 
 // Distinct gray per state (light → dark) for back-layer comparison.
@@ -220,6 +220,7 @@ export default function Trace({
   onHoverChange,
   onViewChange,
   numCols = 0,
+  showColumnLabels = false,
 }) {
   const canvasRef = useRef(null);
   const plotRef = useRef(null);
@@ -429,19 +430,21 @@ export default function Trace({
     }
 
     const labelStep = columnLabelStep(visibleCount);
-    ctx.fillStyle = '#888';
-    ctx.font = '8px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    for (let localC = 0; localC < visibleCount; localC++) {
-      const globalC = viewStart + localC;
-      if (globalC >= totalCols) break;
-      if (!shouldDrawColumnLabel(globalC, viewStart, visibleCount, labelStep)) continue;
-      ctx.fillText(
-        String(globalC + 1),
-        LABEL_W + (localC + 0.5) * colW,
-        TRACE_HEIGHT - MARGIN_BOTTOM + 2
-      );
+    if (showColumnLabels) {
+      ctx.fillStyle = '#888';
+      ctx.font = '8px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      for (let localC = 0; localC < visibleCount; localC++) {
+        const globalC = viewStart + localC;
+        if (globalC >= totalCols) break;
+        if (!shouldDrawColumnLabel(globalC, viewStart, visibleCount, labelStep)) continue;
+        ctx.fillText(
+          String(globalC + 1),
+          LABEL_W + (localC + 0.5) * colW,
+          TRACE_HEIGHT - MARGIN_BOTTOM + 2
+        );
+      }
     }
 
     if (hoverIndex != null && hoverIndex >= viewStart && hoverIndex < viewStart + visibleCount) {
@@ -480,6 +483,7 @@ export default function Trace({
     showDiff,
     colorForLayer,
     styleForLayer,
+    showColumnLabels,
   ]);
 
   useEffect(() => {
@@ -490,6 +494,13 @@ export default function Trace({
 
   return (
     <div className="trace-combined">
+      <div
+        className="im-system-label"
+        title="State trace"
+        style={{ minHeight: TRACE_HEIGHT }}
+      >
+        State trace
+      </div>
       <div
         className="trace-combined-plot im-plot-zoomable"
         ref={plotRef}

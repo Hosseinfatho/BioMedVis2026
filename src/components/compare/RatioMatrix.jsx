@@ -187,6 +187,7 @@ export default function RatioMatrix({
   hoveredMotifOccIdx = null,
   viewStart = 0,
   viewCount,
+  showColumnLabels = false,
 }) {
   const canvasRef = useRef(null);
   const wrapRef = useRef(null);
@@ -195,10 +196,11 @@ export default function RatioMatrix({
   const featureRows = useMemo(() => buildFeatureRows(numStates), [numStates]);
   const totalCols = columns.length;
   const visibleCount = viewCount ?? totalCols;
+  const headerH = showColumnLabels ? COL_HEADER_H : 0;
   const colW =
     visibleCount > 0 ? (width - LABEL_W - RIGHT_PAD) / visibleCount : 0;
-  const bodyTop = COL_HEADER_H + TOP_PAD;
-  const height = COL_HEADER_H + TOP_PAD * 2 + featureRows.length * ROW_H;
+  const bodyTop = headerH + TOP_PAD;
+  const height = headerH + TOP_PAD * 2 + featureRows.length * ROW_H;
 
   useEffect(() => {
     const el = wrapRef.current;
@@ -230,26 +232,28 @@ export default function RatioMatrix({
     const plotW = visibleCount * colW;
     const labelStep = columnLabelStep(visibleCount);
 
-    ctx.fillStyle = '#888';
-    ctx.font = '9px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    for (let localC = 0; localC < visibleCount; localC++) {
-      const globalC = viewStart + localC;
-      if (globalC >= totalCols) break;
-      if (!shouldDrawColumnLabel(globalC, viewStart, visibleCount, labelStep)) {
-        continue;
+    if (showColumnLabels) {
+      ctx.fillStyle = '#888';
+      ctx.font = '9px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      for (let localC = 0; localC < visibleCount; localC++) {
+        const globalC = viewStart + localC;
+        if (globalC >= totalCols) break;
+        if (!shouldDrawColumnLabel(globalC, viewStart, visibleCount, labelStep)) {
+          continue;
+        }
+        const cx = LABEL_W + (localC + 0.5) * colW;
+        ctx.fillText(String(globalC + 1), cx, COL_HEADER_H / 2);
       }
-      const cx = LABEL_W + (localC + 0.5) * colW;
-      ctx.fillText(String(globalC + 1), cx, COL_HEADER_H / 2);
-    }
 
-    ctx.strokeStyle = '#ddd';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(LABEL_W, COL_HEADER_H);
-    ctx.lineTo(LABEL_W + plotW, COL_HEADER_H);
-    ctx.stroke();
+      ctx.strokeStyle = '#ddd';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(LABEL_W, COL_HEADER_H);
+      ctx.lineTo(LABEL_W + plotW, COL_HEADER_H);
+      ctx.stroke();
+    }
 
     featureRows.forEach((feature, r) => {
       const yTop = bodyTop + r * ROW_H;
@@ -342,6 +346,7 @@ export default function RatioMatrix({
     hoveredMotifOccIdx,
     viewStart,
     bodyTop,
+    showColumnLabels,
   ]);
 
   useEffect(() => {

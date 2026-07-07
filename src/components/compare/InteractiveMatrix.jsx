@@ -3,7 +3,7 @@ import { aggregateRateFromWindow, diffRateMatrices } from '../../utils/computeTr
 import { rateAggregationWindow, visibleSelection } from '../../utils/matrixViewport';
 import RatioMatrix, { hitTestMotifBundlesOnMatrix } from './RatioMatrix';
 import RateMatrix from './RateMatrix';
-import { LABEL_W, COL_HEADER_H, TOP_PAD, ROW_H, RIGHT_PAD } from './layout';
+import { LABEL_W, COL_HEADER_H, TOP_PAD, ROW_H, RIGHT_PAD, matrixCanvasHeight } from './layout';
 
 export default function InteractiveMatrix({
   columns,
@@ -27,6 +27,8 @@ export default function InteractiveMatrix({
   rateMode = 'absolute',
   showRate = true,
   showRateTitle = false,
+  showColumnLabels = false,
+  sideLabel = null,
 }) {
   const numCols = columns.length;
   const plotRef = useRef(null);
@@ -194,7 +196,7 @@ export default function InteractiveMatrix({
       ? hoveredMotif.occurrenceIndex
       : null;
 
-  const bodyTop = COL_HEADER_H + TOP_PAD;
+  const bodyTop = (showColumnLabels ? COL_HEADER_H : 0) + TOP_PAD;
 
   const cw =
     numCols > 0 && visibleCount > 0
@@ -228,7 +230,8 @@ export default function InteractiveMatrix({
     visibleCount
   );
 
-  const brushTop = COL_HEADER_H;
+  const headerH = showColumnLabels ? COL_HEADER_H : 0;
+  const brushTop = headerH;
   const left = visSel ? LABEL_W + visSel.localStart * cw : 0;
   const wsel = visSel ? (visSel.localEnd - visSel.localStart + 1) * cw : 0;
 
@@ -237,8 +240,21 @@ export default function InteractiveMatrix({
     hoverIndex >= viewStart &&
     hoverIndex < viewStart + visibleCount;
 
+  const plotHeight = matrixCanvasHeight(numStates, {
+    showColumnHeader: showColumnLabels,
+  });
+
   return (
     <div className="interactive-matrix">
+      {sideLabel && (
+        <div
+          className="im-system-label"
+          title={sideLabel}
+          style={{ minHeight: plotHeight }}
+        >
+          {sideLabel}
+        </div>
+      )}
       <div className="im-plot im-plot-zoomable" ref={plotRef}>
         <RatioMatrix
           columns={columns}
@@ -247,6 +263,7 @@ export default function InteractiveMatrix({
           hoveredMotifOccIdx={hoveredMotifOccIdx}
           viewStart={viewStart}
           viewCount={visibleCount}
+          showColumnLabels={showColumnLabels}
         />
         <div
           className="im-brush-layer"

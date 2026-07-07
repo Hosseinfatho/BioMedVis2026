@@ -9,7 +9,7 @@ function hexToRgba(hex, alpha) {
   return `rgba(${r},${g},${b},${alpha})`;
 }
 
-export const CHART_MARGIN = { top: 12, right: 16, bottom: 36, left: 68 };
+export const CHART_MARGIN = { top: 8, right: 16, bottom: 28, left: 68 };
 export const X_MAX = 8000;
 export const X_TICK_STEP = 2000;
 export const Y_MAX = 320;
@@ -18,7 +18,7 @@ export const ROW_PX = 1;
 export const PLOT_H = Y_MAX * ROW_PX;
 export const CHART_HEIGHT = PLOT_H + CHART_MARGIN.top + CHART_MARGIN.bottom;
 
-export function drawChartGrid(ctx, width, { showYLabels = true, yLabel } = {}) {
+export function drawChartGrid(ctx, width, { showYLabels = true, yLabel, showXAxis = true } = {}) {
   const M = CHART_MARGIN;
   const plotW = width - M.left - M.right;
   const plotH = PLOT_H;
@@ -54,12 +54,14 @@ export function drawChartGrid(ctx, width, { showYLabels = true, yLabel } = {}) {
   ctx.fillStyle = '#555';
   ctx.font = '10px sans-serif';
 
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'top';
-  for (let t = X_TICK_STEP; t <= X_MAX; t += X_TICK_STEP) {
-    ctx.fillText(t.toString(), x(t), yTop + plotH + 5);
+  if (showXAxis) {
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    for (let t = X_TICK_STEP; t <= X_MAX; t += X_TICK_STEP) {
+      ctx.fillText(t.toString(), x(t), yTop + plotH + 5);
+    }
+    ctx.fillText('Time (frames)', M.left + plotW / 2, CHART_HEIGHT - 13);
   }
-  ctx.fillText('Time (frames)', M.left + plotW / 2, CHART_HEIGHT - 13);
 
   if (showYLabels) {
     ctx.textAlign = 'right';

@@ -39,7 +39,7 @@ export default function Comparison({
 
   return (
     <div className="comparison">
-      {systemData.map(({ systemId, rows, viewMode, originalRows }) => (
+      {systemData.map(({ systemId, rows, viewMode, originalRows }, index) => (
         <ComparisonRow
           key={systemId}
           systemId={systemId}
@@ -54,6 +54,7 @@ export default function Comparison({
           activeMotif={activeMotif}
           hoveredMotif={hoveredMotif}
           onMotifHoverChange={onMotifHoverChange}
+          showXAxis={index === systemData.length - 1}
         />
       ))}
     </div>

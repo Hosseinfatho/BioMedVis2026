@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { SYSTEMS, MODELS } from '../../config/dataFiles';
+import { SYSTEMS } from '../../config/dataFiles';
 import { loadSystemData } from '../../utils/loadSystemData';
 import {
   fullView,
@@ -21,6 +21,7 @@ import { slotKey } from '../../utils/slotKey';
 import InteractiveMatrix from './InteractiveMatrix';
 import MotifPanel from './MotifPanel';
 import Trace from '../Trace';
+import Simulation3DPanel from '../3Dsimulation/Simulation3DPanel';
 
 function featuresBySlot(rows, numStates, alignmentId) {
   const map = new Map();
@@ -298,13 +299,13 @@ export default function Compare({
 
   return (
     <div className="compare">
-      <div className="compare-controls">
+      <div className="compare-toolbar">
         <label className="compare-select">
           System A
           <select value={systemA} onChange={(e) => setSystemA(e.target.value)}>
             {systemIds.map((id) => (
               <option key={id} value={id}>
-                {SYSTEMS[id].label} ({id})
+                {SYSTEMS[id].label}
               </option>
             ))}
           </select>
@@ -315,14 +316,14 @@ export default function Compare({
           <select value={systemB} onChange={(e) => setSystemB(e.target.value)}>
             {systemIds.map((id) => (
               <option key={id} value={id}>
-                {SYSTEMS[id].label} ({id})
+                {SYSTEMS[id].label}
               </option>
             ))}
           </select>
         </label>
         <button
           type="button"
-          className="generate-btn"
+          className="generate-btn compare-toolbar-btn"
           onClick={() => setApplied(true)}
           disabled={loading || sameSystem}
         >
@@ -341,45 +342,43 @@ export default function Compare({
             ))}
           </select>
         </label>
-      </div>
 
-      {!loading && !error && dataA && (
-        <MotifPanel
-          numStates={numStates}
-          onActiveMotifChange={onActiveMotifChange}
-        />
-      )}
+        {!loading && !error && dataA && (
+          <>
+            <span className="compare-toolbar-sep" aria-hidden="true" />
+            <MotifPanel
+              numStates={numStates}
+              onActiveMotifChange={onActiveMotifChange}
+            />
+          </>
+        )}
+      </div>
 
       {error && <div className="error-banner">{error}</div>}
       {loading && <div className="empty-state">Loading…</div>}
 
-      {!loading && !error && dataA && colCount > 0 && (
-        <Trace
-          dataA={dataA}
-          dataB={showResult ? dataB : null}
-          systemALabel={`${SYSTEMS[systemA]?.label || systemA} (${systemA})`}
-          systemBLabel={`${SYSTEMS[systemB]?.label || systemB} (${systemB})`}
-          canCompare={showResult}
-          numStates={numStates}
-          matrixSlots={matrixSlots}
-          alignmentId={alignmentId}
-          viewStart={matrixView.viewStart}
-          viewCount={matrixView.viewCount || colCount}
-          numCols={colCount}
-          selection={selection}
-          hoverIndex={hoverIndex}
-          onHoverChange={onHoverChange}
-          onViewChange={handleMatrixViewChange}
-        />
-      )}
-
-      {/* first: just the System A matrix */}
       {!loading && !error && dataA && (
-        <>
-          <div className="compare-title">
-            System A — {SYSTEMS[systemA].label} ({systemA}) ·{' '}
-            {MODELS[selectedModel].label}
-          </div>
+        <div className="compare-matrix-stack">
+          {colCount > 0 && (
+            <Trace
+              dataA={dataA}
+              dataB={showResult ? dataB : null}
+              systemALabel={SYSTEMS[systemA]?.label || systemA}
+              systemBLabel={SYSTEMS[systemB]?.label || systemB}
+              canCompare={showResult}
+              numStates={numStates}
+              matrixSlots={matrixSlots}
+              alignmentId={alignmentId}
+              viewStart={matrixView.viewStart}
+              viewCount={matrixView.viewCount || colCount}
+              numCols={colCount}
+              selection={selection}
+              hoverIndex={hoverIndex}
+              onHoverChange={onHoverChange}
+              onViewChange={handleMatrixViewChange}
+            />
+          )}
+
           <InteractiveMatrix
             key={`matrix-${systemA}`}
             columns={columnsA}
@@ -399,65 +398,69 @@ export default function Compare({
             viewStart={matrixView.viewStart}
             viewCount={matrixView.viewCount || colCount}
             onViewChange={handleMatrixViewChange}
-            showRateTitle
+            showColumnLabels
+            sideLabel={SYSTEMS[systemA].label}
           />
-        </>
+
+          {showResult && (
+            <>
+              <InteractiveMatrix
+                key={`matrix-${systemB}`}
+                columns={columnsB}
+                numStates={numStates}
+                alignmentId={alignmentId}
+                activeMotif={activeMotif}
+                motifSystemId={systemB}
+                hoveredMotif={hoveredMotif}
+                onMotifHoverChange={onMotifHoverChange}
+                selection={selection}
+                onSelectionChange={onSelectionChange}
+                hoverIndex={hoverIndex}
+                onHoverChange={onHoverChange}
+                trajectoryRows={dataB}
+                matrixSlots={matrixSlots}
+                motifBundles={motifBundlesB}
+                viewStart={matrixView.viewStart}
+                viewCount={matrixView.viewCount || colCount}
+                onViewChange={handleMatrixViewChange}
+                sideLabel={SYSTEMS[systemB].label}
+              />
+
+              <InteractiveMatrix
+                key="matrix-diff"
+                columns={columnsDiff}
+                numStates={numStates}
+                alignmentId={alignmentId}
+                activeMotif={activeMotif}
+                motifSystemId="__diff__"
+                hoveredMotif={hoveredMotif}
+                onMotifHoverChange={onMotifHoverChange}
+                selection={selection}
+                onSelectionChange={onSelectionChange}
+                hoverIndex={hoverIndex}
+                onHoverChange={onHoverChange}
+                trajectoryRows={dataA}
+                trajectoryRowsB={dataB}
+                matrixSlots={matrixSlots}
+                motifBundles={motifBundlesDiff}
+                viewStart={matrixView.viewStart}
+                viewCount={matrixView.viewCount || colCount}
+                onViewChange={handleMatrixViewChange}
+                rateMode="diff"
+                sideLabel="Difference"
+              />
+            </>
+          )}
+        </div>
       )}
 
-      {/* after pressing Compare: System B + the difference */}
-      {showResult && (
-        <>
-          <div className="compare-title">
-            System B — {SYSTEMS[systemB].label} ({systemB}) ·{' '}
-            {MODELS[selectedModel].label}
-          </div>
-          <InteractiveMatrix
-            key={`matrix-${systemB}`}
-            columns={columnsB}
-            numStates={numStates}
-            alignmentId={alignmentId}
-            activeMotif={activeMotif}
-            motifSystemId={systemB}
-            hoveredMotif={hoveredMotif}
-            onMotifHoverChange={onMotifHoverChange}
-            selection={selection}
-            onSelectionChange={onSelectionChange}
-            hoverIndex={hoverIndex}
-            onHoverChange={onHoverChange}
-            trajectoryRows={dataB}
-            matrixSlots={matrixSlots}
-            motifBundles={motifBundlesB}
-            viewStart={matrixView.viewStart}
-            viewCount={matrixView.viewCount || colCount}
-            onViewChange={handleMatrixViewChange}
-          />
-
-          <div className="compare-title">
-            Difference |A − B| · {colCount} trajectories
-          </div>
-          <InteractiveMatrix
-            key="matrix-diff"
-            columns={columnsDiff}
-            numStates={numStates}
-            alignmentId={alignmentId}
-            activeMotif={activeMotif}
-            motifSystemId="__diff__"
-            hoveredMotif={hoveredMotif}
-            onMotifHoverChange={onMotifHoverChange}
-            selection={selection}
-            onSelectionChange={onSelectionChange}
-            hoverIndex={hoverIndex}
-            onHoverChange={onHoverChange}
-            trajectoryRows={dataA}
-            trajectoryRowsB={dataB}
-            matrixSlots={matrixSlots}
-            motifBundles={motifBundlesDiff}
-            viewStart={matrixView.viewStart}
-            viewCount={matrixView.viewCount || colCount}
-            onViewChange={handleMatrixViewChange}
-            rateMode="diff"
-          />
-        </>
+      {!loading && !error && dataA && (
+        <Simulation3DPanel
+          systemId={systemA}
+          numStates={numStates}
+          trajectoryRows={dataA}
+          selection={selection}
+        />
       )}
     </div>
   );

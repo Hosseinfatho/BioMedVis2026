@@ -1,4 +1,4 @@
-import { SYSTEMS, MODELS, VIEW_MODES } from '../../config/dataFiles';
+import { SYSTEMS } from '../../config/dataFiles';
 import DualTrajectoryRows from '../DualTrajectoryRows';
 import DualState from '../DualState';
 
@@ -31,12 +31,10 @@ export default function DualComparisonRow({
       <div className="comparison-header">
         <h2>
           {SYSTEMS[systemA].label}
-          <span className="system-meta">({systemA})</span>
           <span className="dual-vs"> + </span>
           {SYSTEMS[systemB].label}
           <span className="system-meta">
-            ({systemB}) · {countA} / {countB} trajectories ·{' '}
-            {VIEW_MODES[viewMode].label} · {MODELS[modelId].label}
+            {countA} / {countB} trajectories
           </span>
         </h2>
       </div>

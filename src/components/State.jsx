@@ -80,6 +80,7 @@ export default function State({
   systemId = null,
   hoveredMotifOccIdx = null,
   onMotifHoverChange = null,
+  showXAxis = true,
 }) {
   const canvasRef = useRef(null);
   const wrapRef = useRef(null);
@@ -122,7 +123,7 @@ export default function State({
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, width, CHART_HEIGHT);
 
-    const { x } = drawChartGrid(ctx, width, { showYLabels: false });
+    const { x } = drawChartGrid(ctx, width, { showYLabels: false, showXAxis });
 
     if (viewMode === 'concatenated') {
       drawConcatenatedStates(ctx, x, rows);
@@ -193,7 +194,7 @@ export default function State({
         );
       }
     }
-  }, [rows, width, viewMode, originalRows, selection, hoverIndex, matrixSlots, globalOccurrences, hoveredMotifOccIdx]);
+  }, [rows, width, viewMode, originalRows, selection, hoverIndex, matrixSlots, globalOccurrences, hoveredMotifOccIdx, showXAxis]);
 
   useEffect(() => {
     draw();

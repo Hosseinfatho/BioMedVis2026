@@ -1,9 +1,11 @@
 import { getMarkovStateColor } from '../../utils/constants';
 
+const MATRIX_BG = [250, 250, 250]; // #fafafa — match compare matrix panels
+
 function heatColor(v, maxV) {
   const denom = maxV > 0 ? maxV : 1;
   const t = Math.max(0, Math.min(1, v / denom));
-  const c0 = [247, 251, 255];
+  const c0 = MATRIX_BG;
   const c1 = [8, 48, 107];
   const r = Math.round(c0[0] + (c1[0] - c0[0]) * t);
   const g = Math.round(c0[1] + (c1[1] - c0[1]) * t);
@@ -17,7 +19,8 @@ function stateCellBg(state, ratio) {
   const g = parseInt(hex.slice(3, 5), 16);
   const b = parseInt(hex.slice(5, 7), 16);
   const t = Math.max(0, Math.min(1, ratio));
-  const mix = (c) => Math.round(255 + (c - 255) * t);
+  const base = MATRIX_BG[0];
+  const mix = (c) => Math.round(base + (c - base) * t);
   return `rgb(${mix(r)}, ${mix(g)}, ${mix(b)})`;
 }
 

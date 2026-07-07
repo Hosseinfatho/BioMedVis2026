@@ -77,6 +77,7 @@ export default function DualTrajectoryRows({
     const { x } = drawChartGrid(ctx, width, {
       showYLabels: true,
       yLabel: 'Trajectories (B shifted in time)',
+      showXAxis: false,
     });
 
     for (let i = 0; i < rowCount; i++) {

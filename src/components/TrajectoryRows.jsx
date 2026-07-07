@@ -69,6 +69,7 @@ export default function TrajectoryRows({
   systemId = null,
   hoveredMotifOccIdx = null,
   onMotifHoverChange = null,
+  showXAxis = false,
 }) {
   const canvasRef = useRef(null);
   const wrapRef = useRef(null);
@@ -116,7 +117,7 @@ export default function TrajectoryRows({
         ? 'Concatenated paths'
         : 'Aligned trajectories (sorted in time)';
 
-    const { x } = drawChartGrid(ctx, width, { showYLabels: true, yLabel });
+    const { x } = drawChartGrid(ctx, width, { showYLabels: true, yLabel, showXAxis });
 
     if (viewMode === 'concatenated') {
       drawConcatenatedEpoch(ctx, x, rows);
@@ -173,7 +174,7 @@ export default function TrajectoryRows({
         );
       }
     }
-  }, [rows, width, viewMode, originalRows, selection, hoverIndex, matrixSlots, globalOccurrences, hoveredMotifOccIdx]);
+  }, [rows, width, viewMode, originalRows, selection, hoverIndex, matrixSlots, globalOccurrences, hoveredMotifOccIdx, showXAxis]);
 
   useEffect(() => {
     draw();

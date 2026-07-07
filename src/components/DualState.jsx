@@ -74,7 +74,7 @@ export default function DualState({
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, width, CHART_HEIGHT);
 
-    const { x } = drawChartGrid(ctx, width, { showYLabels: false });
+    const { x } = drawChartGrid(ctx, width, { showYLabels: false, showXAxis: true });
 
     for (let i = 0; i < rowCount; i++) {
       const y = rowY(i);

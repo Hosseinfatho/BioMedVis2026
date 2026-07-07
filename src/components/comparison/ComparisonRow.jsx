@@ -17,6 +17,7 @@ export default function ComparisonRow({
   activeMotif,
   hoveredMotif,
   onMotifHoverChange,
+  showXAxis = false,
 }) {
   const searchRows =
     viewMode === 'concatenated' && originalRows?.length ? originalRows : rows;
@@ -40,7 +41,6 @@ export default function ComparisonRow({
         systemId={systemId}
         rowCount={rows.length}
         viewMode={viewMode}
-        modelId={modelId}
       />
       <div className="comparison-charts">
         <div className="panel-half panel-epoch">
@@ -55,6 +55,7 @@ export default function ComparisonRow({
             systemId={systemId}
             hoveredMotifOccIdx={hoveredMotifOccIdx}
             onMotifHoverChange={onMotifHoverChange}
+            showXAxis={false}
           />
         </div>
         <div className="panel-half panel-state">
@@ -70,6 +71,7 @@ export default function ComparisonRow({
             systemId={systemId}
             hoveredMotifOccIdx={hoveredMotifOccIdx}
             onMotifHoverChange={onMotifHoverChange}
+            showXAxis={showXAxis}
           />
         </div>
       </div>
