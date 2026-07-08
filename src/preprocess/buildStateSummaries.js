@@ -99,9 +99,9 @@ function addPairDistance(group, key, distance) {
 function addContact(group, i, j, distance) {
   const key = pairKey(i, j);
   addPairDistance(group, key, distance);
-  if (distance <= 6) {
-    group.contactCounts.set(`contact:${key}`, (group.contactCounts.get(`contact:${key}`) || 0) + 1);
-  }
+  // `contacts` list is already thresholded in Step 3.
+  // Do NOT re-apply a fixed cutoff here.
+  group.contactCounts.set(`contact:${key}`, (group.contactCounts.get(`contact:${key}`) || 0) + 1);
 }
 
 function accumulateStructural(group, structural) {

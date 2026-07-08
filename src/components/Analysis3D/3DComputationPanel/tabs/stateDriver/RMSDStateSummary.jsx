@@ -61,7 +61,9 @@ function RmsdHistogram({ bins }) {
     return <p className="conf-driver-muted">No RMSD distribution for this selection.</p>;
   }
 
-  return <canvas ref={canvasRef} className="conf-driver-rmsd-chart" aria-label="RMSD distribution" />;
+  return (
+    <canvas ref={canvasRef} className="conf-driver-rmsd-chart" aria-label="RMSD distribution" />
+  );
 }
 
 export default function RMSDStateSummary({ summary, rmsdBins, frameCount }) {
@@ -100,3 +102,4 @@ export default function RMSDStateSummary({ summary, rmsdBins, frameCount }) {
     </div>
   );
 }
+

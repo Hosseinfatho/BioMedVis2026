@@ -12,7 +12,9 @@
     "preprocess:frame-structural": "node src/preprocess/runFrameStructuralFeatures.js",
     "preprocess:structural-index": "node src/preprocess/runStructuralIndex.js",
     "preprocess:state-summaries": "node --max-old-space-size=8192 src/preprocess/runStateSummaries.js",
-    "preprocess:representative-frames": "node --max-old-space-size=8192 src/preprocess/runRepresentativeFrames.js"
+    "preprocess:representative-frames": "node --max-old-space-size=8192 src/preprocess/runRepresentativeFrames.js",
+    "preprocess:state-trajectory-frame-counts": "node --max-old-space-size=8192 src/preprocess/runStateTrajectoryFrameCounts.js",
+    "preprocess:signature-residuals": "node --max-old-space-size=8192 src/preprocess/runSignatureResiduals.js"
   },
   "dependencies": {
     "3dmol": "^2.5.5",

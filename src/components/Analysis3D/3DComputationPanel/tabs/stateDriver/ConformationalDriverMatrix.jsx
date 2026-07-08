@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AB42_RESIDUE_COUNT } from '../../Viewer3D/residueSpectrum';
-import { residualColor } from '../../../../utils/conformationalDriversData';
+import { AB42_RESIDUE_COUNT } from '../../../Viewer3D/residueSpectrum';
+import { residualColor } from '../../../../../utils/conformationalDriversData';
 import ResidualColorBar from './ResidualColorBar';
 
 const LABEL_W = 22;
@@ -81,8 +81,8 @@ export default function ConformationalDriverMatrix({
 
     // One marker on the clicked contact cell only (e.g. row 14 × col 17)
     if (selectedPair?.i && selectedPair?.j && selectedPair.i !== selectedPair.j) {
-      const row = (selectedPair.row ?? selectedPair.i - 1);
-      const col = (selectedPair.col ?? selectedPair.j - 1);
+      const row = selectedPair.row ?? selectedPair.i - 1;
+      const col = selectedPair.col ?? selectedPair.j - 1;
       ctx.strokeStyle = '#111';
       ctx.lineWidth = 2;
       ctx.strokeRect(
@@ -146,7 +146,7 @@ export default function ConformationalDriverMatrix({
   };
 
   const tip = hoverPair
-    ? `R${hoverPair.i}–R${hoverPair.j}: ${hoverPair.value >= 0 ? '+' : ''}${hoverPair.value.toFixed(4)}`
+    ? `R${hoverPair.i}–R${hoverPair.j}: ${hoverPair.value >= 0 ? '+' : ''}${hoverPair.value.toFixed(4)} (closer-than-average)`
     : selectedPair
       ? `Selected R${selectedPair.i}–R${selectedPair.j}`
       : 'Click a cell (e.g. row 14, col 17) to select that residue pair';
@@ -171,3 +171,4 @@ export default function ConformationalDriverMatrix({
     </div>
   );
 }
+

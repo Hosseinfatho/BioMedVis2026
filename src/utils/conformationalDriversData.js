@@ -12,6 +12,8 @@ let contactMapsPromise = null;
 let stateSummaryPromise = null;
 let rmsdByStatePromise = null;
 let representativeFramesPromise = null;
+let stateTrajectoryFrameCountsPromise = null;
+let signatureResidualsPromise = null;
 
 export function loadContactMaps() {
   if (!contactMapsPromise) {
@@ -76,6 +78,32 @@ export function loadRepresentativeFrameRows() {
   return representativeFramesPromise;
 }
 
+export function loadStateTrajectoryFrameCounts() {
+  if (!stateTrajectoryFrameCountsPromise) {
+    stateTrajectoryFrameCountsPromise = fetch(
+      `${RESIDUAL_DATA_BASE}state_trajectory_frame_counts.json`
+    )
+      .then((res) => {
+        if (!res.ok) return {};
+        return res.json();
+      })
+      .catch(() => ({}));
+  }
+  return stateTrajectoryFrameCountsPromise;
+}
+
+export function loadSignatureResiduals() {
+  if (!signatureResidualsPromise) {
+    signatureResidualsPromise = fetch(`${RESIDUAL_DATA_BASE}state_signature_residuals.json`)
+      .then((res) => {
+        if (!res.ok) return {};
+        return res.json();
+      })
+      .catch(() => ({}));
+  }
+  return signatureResidualsPromise;
+}
+
 function parsePair(pairStr) {
   const [a, b] = pairStr.split('-').map((v) => Number.parseInt(v, 10));
   if (!Number.isFinite(a) || !Number.isFinite(b)) return null;
@@ -119,6 +147,53 @@ export function buildOverallContactFrequencies(contactMaps, system, model, traje
   return overall;
 }
 
+// Weighted overall mean distance per pair across states.
+// Uses state_contact_maps.json `pair_distances[pair] = { mean, count }` when available,
+// falling back to `contacts[].avg_distance` (unweighted) if needed.
+export function buildOverallPairDistanceMeans(contactMaps, system, model, trajectoryType) {
+  const sum = new Map(); // pair -> sum(mean * count)
+  const n = new Map(); // pair -> sum(count)
+  const fallbackSum = new Map(); // pair -> sum(mean)
+  const fallbackN = new Map(); // pair -> number of states observed
+
+  for (const [key, entry] of Object.entries(contactMaps)) {
+    const [sys, mdl, trajType] = key.split('|');
+    if (sys !== system || mdl !== model || trajType !== trajectoryType) continue;
+
+    const pairDistances = entry.pair_distances || {};
+    for (const [pair, stats] of Object.entries(pairDistances)) {
+      const mean = Number.parseFloat(stats?.mean);
+      const count = Number.parseInt(stats?.count, 10);
+      if (!Number.isFinite(mean) || !Number.isFinite(count) || count <= 0) continue;
+      sum.set(pair, (sum.get(pair) || 0) + mean * count);
+      n.set(pair, (n.get(pair) || 0) + count);
+    }
+
+    for (const c of entry.contacts || []) {
+      const mean = Number.parseFloat(c?.avg_distance);
+      const pair = c?.pair;
+      if (!pair || !Number.isFinite(mean)) continue;
+      fallbackSum.set(pair, (fallbackSum.get(pair) || 0) + mean);
+      fallbackN.set(pair, (fallbackN.get(pair) || 0) + 1);
+    }
+  }
+
+  const overall = new Map();
+  for (const [pair, s] of sum) {
+    const denom = n.get(pair) || 0;
+    if (denom > 0) overall.set(pair, s / denom);
+  }
+
+  // Fill gaps with unweighted mean across states (only if missing from weighted map)
+  for (const [pair, s] of fallbackSum) {
+    if (overall.has(pair)) continue;
+    const denom = fallbackN.get(pair) || 0;
+    if (denom > 0) overall.set(pair, s / denom);
+  }
+
+  return overall;
+}
+
 export function buildResidualContactMatrix(contactMaps, system, model, trajectoryType, state) {
   const key = contactMapKey(system, model, trajectoryType, state);
   const entry = contactMaps[key];
@@ -153,7 +228,80 @@ export function buildResidualContactMatrix(contactMaps, system, model, trajector
     });
   }
 
+  // Rank by absolute residual magnitude (state-specific signal strength).
   pairs.sort((a, b) => Math.abs(b.residual) - Math.abs(a.residual));
+
+  return {
+    matrix,
+    topPairs: pairs.slice(0, 8),
+    frameCount: entry.frame_count ?? 0,
+    maxAbs: maxAbs || 1,
+  };
+}
+
+// Distance-based residual matrix:
+// value = overall_mean_distance(pair) - state_mean_distance(pair)
+// Positive => closer than average (High / red). Negative => farther than average (Low / blue).
+export function buildResidualDistanceMatrix(contactMaps, system, model, trajectoryType, state) {
+  const key = contactMapKey(system, model, trajectoryType, state);
+  const entry = contactMaps[key];
+  const matrix = emptyMatrix();
+  const overall = buildOverallPairDistanceMeans(contactMaps, system, model, trajectoryType);
+
+  if (!entry) {
+    return { matrix, topPairs: [], frameCount: 0, maxAbs: 1 };
+  }
+
+  let maxAbs = 0;
+  const pairs = [];
+
+  // Prefer `pair_distances` for the state mean (has count).
+  const statePairDistances = entry.pair_distances || {};
+  for (const [pair, stats] of Object.entries(statePairDistances)) {
+    const parsed = parsePair(pair);
+    if (!parsed) continue;
+    const stateMean = Number.parseFloat(stats?.mean);
+    if (!Number.isFinite(stateMean)) continue;
+    const overallMean = overall.get(pair);
+    if (!Number.isFinite(overallMean)) continue;
+
+    const residual = overallMean - stateMean; // positive => closer than average
+    setSymmetric(matrix, parsed.i, parsed.j, residual);
+    maxAbs = Math.max(maxAbs, Math.abs(residual));
+    pairs.push({
+      i: parsed.i,
+      j: parsed.j,
+      residual,
+      stateMeanDistance: stateMean,
+      overallMeanDistance: overallMean,
+    });
+  }
+
+  // If pair_distances is missing for some reason, fall back to contacts[].avg_distance.
+  if (!pairs.length) {
+    for (const contact of entry.contacts || []) {
+      const parsed = parsePair(contact.pair);
+      if (!parsed) continue;
+      const stateMean = Number.parseFloat(contact.avg_distance);
+      if (!Number.isFinite(stateMean)) continue;
+      const overallMean = overall.get(contact.pair);
+      if (!Number.isFinite(overallMean)) continue;
+
+      const residual = overallMean - stateMean;
+      setSymmetric(matrix, parsed.i, parsed.j, residual);
+      maxAbs = Math.max(maxAbs, Math.abs(residual));
+      pairs.push({
+        i: parsed.i,
+        j: parsed.j,
+        residual,
+        stateMeanDistance: stateMean,
+        overallMeanDistance: overallMean,
+      });
+    }
+  }
+
+  // Rank by residual value (descending): closest-than-average first.
+  pairs.sort((a, b) => b.residual - a.residual);
 
   return {
     matrix,

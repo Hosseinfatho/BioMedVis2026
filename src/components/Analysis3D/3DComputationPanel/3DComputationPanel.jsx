@@ -1,11 +1,17 @@
 import { useState } from 'react';
-import ConformationalDrivers from './tabs/ConformationalDrivers';
+import StateSignature from './tabs/signature';
+import StateDriver from './tabs/stateDriver';
 
 const TABS = [
   {
-    id: 'conformational-drivers',
-    label: 'ConformationalDrivers',
-    Component: ConformationalDrivers,
+    id: 'state-signature',
+    label: 'StateSignature',
+    Component: StateSignature,
+  },
+  {
+    id: 'state-driver',
+    label: 'StateDriver',
+    Component: StateDriver,
   },
 ];
 

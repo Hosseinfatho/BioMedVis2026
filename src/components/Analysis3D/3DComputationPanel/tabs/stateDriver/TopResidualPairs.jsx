@@ -13,15 +13,15 @@ export default function TopResidualPairs({ pairs, onPairClick }) {
               <button
                 type="button"
                 className="conf-driver-pair-btn"
-                    onClick={() =>
-                      onPairClick?.({
-                        i: pair.i,
-                        j: pair.j,
-                        row: pair.i - 1,
-                        col: pair.j - 1,
-                        value: pair.residual,
-                      })
-                    }
+                onClick={() =>
+                  onPairClick?.({
+                    i: pair.i,
+                    j: pair.j,
+                    row: pair.i - 1,
+                    col: pair.j - 1,
+                    value: pair.residual,
+                  })
+                }
               >
                 <span>
                   R{pair.i}–R{pair.j}
@@ -38,3 +38,4 @@ export default function TopResidualPairs({ pairs, onPairClick }) {
     </div>
   );
 }
+

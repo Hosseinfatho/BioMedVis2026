@@ -1,4 +1,4 @@
-import { residualColor } from '../../../../utils/conformationalDriversData';
+import { residualColor } from '../../../../../utils/conformationalDriversData';
 
 function buildResidualCssGradient() {
   const high = residualColor(1, 1);
@@ -23,3 +23,4 @@ export default function ResidualColorBar() {
     </div>
   );
 }
+

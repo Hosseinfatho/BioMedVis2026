@@ -7,7 +7,7 @@ import { OUTPUT_DIR } from './paths.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
-const SCRIPT_PATH = path.join(PROJECT_ROOT, 'scripts', 'structural_trajectory_features.py');
+const SCRIPT_PATH = path.join(PROJECT_ROOT, 'scripts', 'structural_system_features.py');
 const OUTPUT_FILE = path.join(OUTPUT_DIR, 'frame_structural_features.csv');
 
 export const FRAME_STRUCTURAL_COLUMNS = [
@@ -37,16 +37,18 @@ export function readTrajectoryNames(systemId) {
     .filter(Boolean);
 }
 
-export function runStructuralTrajectory(systemId, trajectoryName, outputPath, writeHeader) {
+export function runStructuralSystem(systemId, namesFilePath, outputPath, writeHeader, limit) {
   const py = process.platform === 'win32' ? 'python' : 'python3';
   const args = [
     SCRIPT_PATH,
     systemId,
-    trajectoryName,
+    '--names-file',
+    namesFilePath,
     '--output',
     outputPath,
   ];
   if (writeHeader) args.push('--write-header');
+  if (limit != null) args.push('--limit', String(limit));
 
   const result = spawnSync(py, args, {
     cwd: PROJECT_ROOT,
@@ -57,7 +59,7 @@ export function runStructuralTrajectory(systemId, trajectoryName, outputPath, wr
     throw new Error(
       result.stderr?.trim() ||
         result.stdout?.trim() ||
-        `structural_trajectory_features failed for ${systemId}/${trajectoryName}`
+        `structural_system_features failed for ${systemId}`
     );
   }
 
@@ -78,22 +80,23 @@ export function buildFrameStructuralFeatures({
   let total = 0;
 
   for (const systemId of systems) {
-    let names = readTrajectoryNames(systemId);
-    if (limitPerSystem != null) {
-      names = names.slice(0, limitPerSystem);
+    const namesFile = path.join(OUTPUT_DIR, '..', systemId, `${systemId}_names.txt`);
+    const altFile = path.join(PROJECT_ROOT, 'public', 'data', systemId, `${systemId}_names.txt`);
+    const namesFilePath = fs.existsSync(namesFile) ? namesFile : altFile;
+    if (!fs.existsSync(namesFilePath)) {
+      throw new Error(`Missing names file for ${systemId}`);
     }
 
-    for (const trajectoryName of names) {
-      const message = runStructuralTrajectory(
-        systemId,
-        trajectoryName,
-        outputPath,
-        !headerWritten
-      );
-      headerWritten = true;
-      if (message) process.stdout.write(`${message}\n`);
-      total += 1;
-    }
+    const message = runStructuralSystem(
+      systemId,
+      namesFilePath,
+      outputPath,
+      !headerWritten,
+      limitPerSystem
+    );
+    headerWritten = true;
+    if (message) process.stdout.write(`${message}\n`);
+    total += 1;
   }
 
   return { outputPath, trajectoryCount: total };

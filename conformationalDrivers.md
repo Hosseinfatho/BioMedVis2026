@@ -96,3 +96,130 @@ References to use:
 Zhang, H. et al. (2021). “Evaluation of residue-residue contact prediction methods.”
 Salamanca Viloria, J., Allega, M. F., Lambrughi, M., & Papaleo, E. (2017). “An optimal distance cutoff for contact-based Protein Structure Networks using side-chain centers of mass.” Scientific Reports, 7, 2838.
 Yehorova, D. et al. (2024). “Using Residue Interaction Networks (RINs) to Understand Protein Structure and Function.”
+
+
+
+# ConformationalDrivers (StateDriver tab)
+
+ConformationalDrivers (UI tab label: **StateDriver**) is a tab inside Analysis3D that explains which residue–residue interactions help define each Markov state and links those patterns to the 3D structure.
+
+The main view is a **42×42 residual contact matrix**. Each cell shows whether a residue pair contacts **more or less often** in the selected Markov state than the average across states. Clicking a cell loads that state’s representative frame and highlights the two residues in Viewer3D. An RMSD summary under the matrix describes whether the selected state is structurally stable or variable.
+
+---
+
+## Goal
+
+- Show which residue–residue contacts are **stronger or weaker** in each Markov state.
+- Connect abstract Markov states to real 3D residue positions.
+
+---
+
+## What the matrix shows
+
+- **Row** = residue *i* (1–42)
+- **Column** = residue *j* (1–42)
+- **Cell** = contact **residual** for pair (*i*, *j*) in the selected state
+
+### Color meaning
+
+- **Red / High** = contact is **more frequent** than average in this state
+- **Blue / Low** = contact is **less frequent** than average in this state
+- **White / Neutral** = close to the average across states
+
+---
+
+## Method: contact based on pair average (not a fixed 6 Å cutoff)
+
+We keep **contact frequency**, but the contact threshold is **not fixed at 6 Å**.
+
+### Step A — average distance per residue pair
+
+For each residue pair (*i*, *j*), compute the mean Cα–Cα distance over **all trajectories and all frames** of that system (preprocessing Step 3):
+
+```text
+μ(i,j) = mean of d(i,j) over all frames / all trajectories (same system)
+```
+
+Each pair has its own average threshold. Nearby chain neighbors typically have a small μ; distant pairs have a larger μ.
+
+### Step B — define contact per frame
+
+In each frame:
+
+```text
+contact(i,j,frame) = true  if  d(i,j,frame) ≤ μ(i,j)
+contact(i,j,frame) = false if  d(i,j,frame) >  μ(i,j)
+```
+
+So a pair is “in contact” when it is **closer than (or equal to) its own average distance** across the ensemble.
+
+### Why this is better than a fixed cutoff
+
+- A fixed cutoff (e.g. 4, 5, or 6 Å) is arbitrary and the same for every pair.
+- An average-based threshold adapts to each pair: for pair (*i*, *j*), “close” means **closer than usual for that pair**.
+- Contact frequency then answers: *in this Markov state, how often is this pair closer than its typical distance?*
+
+### Step C — contact frequency per state
+
+For Markov state *s*:
+
+```text
+C_s(i,j) = (# frames in state s where contact(i,j) is true)
+           / (# frames in state s)
+```
+
+### Step D — residual (what the matrix cell stores)
+
+```text
+residual(i,j,s) = C_s(i,j) − mean_over_states( C(i,j) )
+```
+
+Simple example:
+
+- Pair R14–R17 in State 1: contact in 600 of 1000 frames → `C_1 = 0.60`
+- Mean across states for R14–R17 = `0.80`
+- Residual = `0.60 − 0.80 = −0.20` → **less** contact than average (blue / low)
+
+Opposite:
+
+- Same pair in State 0: `C_0 = 0.90`, mean = `0.80`
+- Residual = `+0.10` → **more** contact than average (red / high)
+
+---
+
+## Inputs (from `public/data/Residual/`)
+
+| File | Role |
+|------|------|
+| `state_contact_maps.json` | Contact frequencies per system / model / trajectory type / state → matrix |
+| `representative_frames.csv` | Rank-1 frame for the selected state → drives Viewer3D |
+| `state_summary.csv` | Avg RMSD, radius of gyration, frame count |
+| `rmsd_by_state.csv` | RMSD histogram for the selected state |
+
+Contacts in these files are produced by preprocessing using the **average-based threshold** above (`scripts/structural_system_features.py` → Step 3, then Step 4).
+
+---
+
+## Controls and 3D link
+
+- **Controls:** System, Model, State (trajectory type fixed to `original`)
+- **Click** cell e.g. row 14 × col 17 → select **R14–R17**
+- Viewer3D loads representative frame rank=1 and highlights residues 14 and 17
+
+---
+
+## RMSD panel (separate from the matrix)
+
+RMSD does **not** build the 42×42 matrix. It only describes structural variability of the selected state.
+
+- Per frame: Cα RMSD vs **frame 0 of that trajectory** (after superposition)
+- Panel: average / std / histogram of those values for **all frames in the selected state**
+- Low / narrow RMSD → more stable; high / wide → more rearranged or mixed
+
+---
+
+## Files
+
+`StateDriver.jsx`, `ConformationalDriverMatrix.jsx`, `RMSDStateSummary.jsx`, `TopResidualPairs.jsx`, `ResidualColorBar.jsx`, `conformationalDriversData.js`
+
+Preprocess: `scripts/structural_system_features.py`, Steps 3–4 in `src/preprocess/README.md`

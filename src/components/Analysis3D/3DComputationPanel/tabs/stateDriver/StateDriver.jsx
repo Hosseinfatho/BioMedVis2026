@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { MODELS, SYSTEMS } from '../../../../config/dataFiles';
-import { getMarkovStateColor } from '../../../../utils/constants';
+import { MODELS, SYSTEMS } from '../../../../../config/dataFiles';
+import { getMarkovStateColor } from '../../../../../utils/constants';
 import {
   buildResidualContactMatrix,
   filterRmsdDistribution,
@@ -11,7 +11,7 @@ import {
   loadRmsdByStateRows,
   loadStateSummaryRows,
   stateOptionsForModel,
-} from '../../../../utils/conformationalDriversData';
+} from '../../../../../utils/conformationalDriversData';
 import ConformationalDriverMatrix from './ConformationalDriverMatrix';
 import RMSDStateSummary from './RMSDStateSummary';
 import TopResidualPairs from './TopResidualPairs';
@@ -19,7 +19,7 @@ import TopResidualPairs from './TopResidualPairs';
 const SYSTEM_IDS = Object.keys(SYSTEMS);
 const TRAJECTORY_TYPE = 'original';
 
-export default function ConformationalDrivers({
+export default function StateDriver({
   defaultSystemId,
   defaultModelId = 'states2',
   systems = [],
@@ -105,12 +105,25 @@ export default function ConformationalDrivers({
 
   const summary = useMemo(
     () =>
-      filterStateSummary(stateSummaryRows, systemId, modelId, TRAJECTORY_TYPE, state),
+      filterStateSummary(
+        stateSummaryRows,
+        systemId,
+        modelId,
+        TRAJECTORY_TYPE,
+        state
+      ),
     [stateSummaryRows, systemId, modelId, state]
   );
 
   const rmsdBins = useMemo(
-    () => filterRmsdDistribution(rmsdRows, systemId, modelId, TRAJECTORY_TYPE, state),
+    () =>
+      filterRmsdDistribution(
+        rmsdRows,
+        systemId,
+        modelId,
+        TRAJECTORY_TYPE,
+        state
+      ),
     [rmsdRows, systemId, modelId, state]
   );
 
@@ -132,7 +145,8 @@ export default function ConformationalDrivers({
   }, [systems, systemId]);
 
   const applyViewerForState = useCallback(() => {
-    if (!representative || !trajectoryNames.has(representative.trajectoryName)) return;
+    if (!representative || !trajectoryNames.has(representative.trajectoryName))
+      return;
 
     onViewerTargetChange?.({
       systemId: representative.systemId,
@@ -167,7 +181,7 @@ export default function ConformationalDrivers({
   return (
     <div className="computation-tab computation-tab--conformational-drivers">
       <div className="conf-driver-toolbar">
-        <h4 className="computation-tab-title">Conformational Drivers</h4>
+        <h4 className="computation-tab-title">StateDriver</h4>
         <div className="viewer-3d-controls">
           <select
             className="viewer-3d-select"
@@ -239,3 +253,4 @@ export default function ConformationalDrivers({
     </div>
   );
 }
+

@@ -32,6 +32,9 @@ npm run preprocess:frame-index              # Step 1
 npm run preprocess:trajectory-features    # Step 2
 npm run preprocess:frame-structural       # Step 3 (slow, hours)
 npm run preprocess:structural-index       # Step 3b (build SQLite cache, optional)
+npm run preprocess:state-trajectory-frame-counts
+npm run preprocess:signature-residuals   # Cα–Cα distance histograms per state / pair / frame
+
 npm run preprocess:state-summaries          # Step 4
 npm run preprocess:representative-frames    # Step 5
 ```
@@ -60,6 +63,7 @@ REPRESENTATIVE_TOP_K=10 npm run preprocess:representative-frames
 | **3** | `preprocess:frame-structural` | `filtered.pdb`, `output.filtered.xtc` | `frame_structural_features.csv` | T3 RMSD, contacts, ligand |
 | **4** | `preprocess:state-summaries` | `frame_index.csv` + `frame_structural_features.csv` | `state_summary.csv`, `rmsd_by_state.csv`, `state_contact_maps.json`, `ligand_contacts.csv`, `structural_index.db` | T3 state explanation |
 | **5** | `preprocess:representative-frames` | `frame_index.csv` + `frame_structural_features.csv` (+ db cache) | `representative_frames.csv` | T3 representative 3D frames |
+| **6** | `preprocess:signature-residuals` | `frame_index.csv` + raw trajectories | `state_signature_residuals.json` | StateSignature distance histograms |
 
 ---
 
@@ -100,6 +104,19 @@ Top frames closest to structural center of each state (default: 5 per state).
 **Input:** `frame_index.csv` + `frame_structural_features.csv`  
 **Output columns:** `system`, `model`, `trajectory_type`, `state`, `trajectory_name`, `local_frame`, `xtc_frame_index`, `representative_rank`, `representative_score`
 
+### Step 6 — `state_signature_residuals.json`
+Per-state Cα–Cα distance histograms plus **μ and σ per pair** for adaptive stability scoring.
+
+**Score (UI):** count frames with `|distance − μ| / μ ≤ displacement%` (default **1%**).
+
+```bash
+npm run preprocess:signature-residuals
+```
+
+**Output format (`distance_histogram_v2`):**
+- `_meta.bin_width`, `_meta.max_distance`
+- Per group: `pair_hist`, `pair_stats` (`mean`, `std`, `n`)
+
 ---
 
 ## File map
@@ -111,6 +128,7 @@ src/preprocess/
   runFrameStructuralFeatures.js → Step 3
   runStateSummaries.js          → Step 4
   runRepresentativeFrames.js    → Step 5
+  runSignatureResiduals.js      → Step 6
 
 public/data/Residual/
   frame_index.csv
@@ -121,6 +139,17 @@ public/data/Residual/
   state_contact_maps.json
   ligand_contacts.csv
   representative_frames.csv
+  state_signature_residuals.json
+public/data/Residual/
+  frame_index.csv
+  trajectory_features.csv
+  frame_structural_features.csv
+  state_summary.csv
+  rmsd_by_state.csv
+  state_contact_maps.json
+  ligand_contacts.csv
+  representative_frames.csv
+  state_signature_residuals.json
 ```
 
 Each output has a matching `.md` file in the same folder with more detail.
