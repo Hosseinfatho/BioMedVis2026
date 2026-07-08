@@ -489,6 +489,7 @@ export default function Compare({
         <Analysis3D
           systemsData={systemsData}
           defaultSystemId={systemA}
+          defaultModelId={selectedModel}
           viewerTarget={residueViewerTarget}
         />
       )}

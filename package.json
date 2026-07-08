@@ -10,8 +10,9 @@
     "preprocess:frame-index": "node src/preprocess/runFrameIndex.js",
     "preprocess:trajectory-features": "node src/preprocess/runTrajectoryFeatures.js",
     "preprocess:frame-structural": "node src/preprocess/runFrameStructuralFeatures.js",
-    "preprocess:state-summaries": "node src/preprocess/runStateSummaries.js",
-    "preprocess:representative-frames": "node src/preprocess/runRepresentativeFrames.js"
+    "preprocess:structural-index": "node src/preprocess/runStructuralIndex.js",
+    "preprocess:state-summaries": "node --max-old-space-size=8192 src/preprocess/runStateSummaries.js",
+    "preprocess:representative-frames": "node --max-old-space-size=8192 src/preprocess/runRepresentativeFrames.js"
   },
   "dependencies": {
     "3dmol": "^2.5.5",

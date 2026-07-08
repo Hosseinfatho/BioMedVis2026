@@ -4,6 +4,12 @@ import path from 'node:path';
 import { OUTPUT_DIR } from './paths.js';
 import { buildAllConcatLookups } from './buildConcatLookup.js';
 import { rowToCsvLine } from './writeFrameIndexCsv.js';
+import {
+  createStructuralReaders,
+  ensureStructuralIndexDb,
+  parseCsvLine,
+  resolveStructuralParts,
+} from './structuralIndexDb.js';
 
 const FRAME_INDEX_PATH = path.join(OUTPUT_DIR, 'frame_index.csv');
 const STRUCTURAL_PATH = path.join(OUTPUT_DIR, 'frame_structural_features.csv');
@@ -46,36 +52,6 @@ export const LIGAND_CONTACTS_COLUMNS = [
 const RMSD_BIN_WIDTH = 0.5;
 const RMSD_MAX = 15;
 const RMSD_BINS = Math.ceil(RMSD_MAX / RMSD_BIN_WIDTH);
-
-function parseCsvLine(line) {
-  const values = [];
-  let current = '';
-  let inQuotes = false;
-
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
-    if (inQuotes) {
-      if (ch === '"' && line[i + 1] === '"') {
-        current += '"';
-        i += 1;
-      } else if (ch === '"') {
-        inQuotes = false;
-      } else {
-        current += ch;
-      }
-    } else if (ch === '"') {
-      inQuotes = true;
-    } else if (ch === ',') {
-      values.push(current);
-      current = '';
-    } else {
-      current += ch;
-    }
-  }
-
-  values.push(current);
-  return values;
-}
 
 function pairKey(a, b) {
   return a <= b ? `${a}-${b}` : `${b}-${a}`;
@@ -284,55 +260,16 @@ function round(value, digits) {
   return Number.parseFloat(Number(value).toFixed(digits));
 }
 
-async function loadStructuralMap(structuralPath = STRUCTURAL_PATH) {
-  if (!fs.existsSync(structuralPath)) {
-    throw new Error(`Missing ${structuralPath}. Run preprocess:frame-structural first.`);
-  }
-
-  const map = new Map();
-  const stream = fs.createReadStream(structuralPath, { encoding: 'utf8' });
-  const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
-
-  let header = null;
-  for await (const line of rl) {
-    if (!line.trim()) continue;
-    if (!header) {
-      header = parseCsvLine(line);
-      continue;
-    }
-
-    const values = parseCsvLine(line);
-    const row = Object.fromEntries(header.map((col, i) => [col, values[i]]));
-
-    const key = `${row.system}|${row.trajectory_name}|${row.xtc_frame_index}`;
-    map.set(key, {
-      rmsd: Number.parseFloat(row.rmsd),
-      radius_of_gyration: Number.parseFloat(row.radius_of_gyration),
-      contact_features: JSON.parse(row.contact_features),
-      ligand_contact_features: JSON.parse(row.ligand_contact_features),
-    });
-  }
-
-  return map;
-}
-
-function resolveStructuralKey(row, concatLookups) {
-  if (row.trajectory_type === 'original') {
-    return `${row.system}|${row.trajectory_name}|${row.xtc_frame_index}`;
-  }
-
-  const lookup = concatLookups.get(row.system);
-  const resolved = lookup?.get(`${row.trajectory_name}|${row.local_frame}`);
-  if (!resolved) return null;
-  return `${row.system}|${resolved.source_trajectory}|${resolved.xtc_frame_index}`;
-}
-
 export async function buildStateSummaries({
   frameIndexPath = FRAME_INDEX_PATH,
   structuralPath = STRUCTURAL_PATH,
   outputDir = OUTPUT_DIR,
 } = {}) {
-  const structuralMap = await loadStructuralMap(structuralPath);
+  process.stdout.write('Building structural index database… ');
+  const { db } = await ensureStructuralIndexDb({ structuralPath });
+  process.stdout.write('done\n');
+
+  const readers = createStructuralReaders(db);
   const concatLookups = buildAllConcatLookups();
   const groups = new Map();
 
@@ -354,10 +291,14 @@ export async function buildStateSummaries({
     const values = parseCsvLine(line);
     const row = Object.fromEntries(header.map((col, i) => [col, values[i]]));
 
-    const structuralKey = resolveStructuralKey(row, concatLookups);
-    if (!structuralKey) continue;
+    const parts = resolveStructuralParts(row, concatLookups);
+    if (!parts) continue;
 
-    const structural = structuralMap.get(structuralKey);
+    const structural = readers.readFrame(
+      parts.system,
+      parts.trajectoryName,
+      parts.xtcFrameIndex
+    );
     if (!structural) continue;
 
     matched += 1;

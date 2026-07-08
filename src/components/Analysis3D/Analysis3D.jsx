@@ -1,12 +1,17 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { SYSTEMS } from '../../config/dataFiles';
 import Viewer3D, { RESIDUE_VIEWER_TITLE } from './Viewer3D/Viewer3D';
+import Computation3DPanel from './3DComputationPanel/3DComputationPanel';
 
 export default function Analysis3D({
   systemsData = {},
   defaultSystemId,
+  defaultModelId = 'states2',
   viewerTarget = null,
 }) {
+  const [activeViewerTarget, setActiveViewerTarget] = useState(null);
+  const [residueHighlight, setResidueHighlight] = useState(null);
+
   const systems = useMemo(
     () =>
       Object.entries(systemsData)
@@ -19,6 +24,15 @@ export default function Analysis3D({
     [systemsData]
   );
 
+  useEffect(() => {
+    if (viewerTarget?.systemId && viewerTarget?.trajectoryName) {
+      setActiveViewerTarget(viewerTarget);
+      setResidueHighlight(null);
+    }
+  }, [viewerTarget]);
+
+  const effectiveTarget = activeViewerTarget ?? viewerTarget;
+
   if (!systems.length) {
     return null;
   }
@@ -29,9 +43,18 @@ export default function Analysis3D({
         <Viewer3D
           systems={systems}
           defaultSystemId={defaultSystemId}
-          viewerTarget={viewerTarget}
+          viewerTarget={effectiveTarget}
+          residueHighlight={residueHighlight}
         />
       </section>
+
+      <Computation3DPanel
+        defaultSystemId={defaultSystemId}
+        defaultModelId={defaultModelId}
+        systems={systems}
+        onViewerTargetChange={setActiveViewerTarget}
+        onResidueHighlightChange={setResidueHighlight}
+      />
     </div>
   );
 }

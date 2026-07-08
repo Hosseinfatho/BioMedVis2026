@@ -4,6 +4,12 @@ import path from 'node:path';
 import { OUTPUT_DIR } from './paths.js';
 import { buildAllConcatLookups } from './buildConcatLookup.js';
 import { rowToCsvLine } from './writeFrameIndexCsv.js';
+import {
+  createStructuralReaders,
+  ensureStructuralIndexDb,
+  parseCsvLine,
+  resolveStructuralParts,
+} from './structuralIndexDb.js';
 
 const FRAME_INDEX_PATH = path.join(OUTPUT_DIR, 'frame_index.csv');
 const STRUCTURAL_PATH = path.join(OUTPUT_DIR, 'frame_structural_features.csv');
@@ -21,61 +27,23 @@ export const REPRESENTATIVE_FRAME_COLUMNS = [
   'representative_score',
 ];
 
-function parseCsvLine(line) {
-  const values = [];
-  let current = '';
-  let inQuotes = false;
-
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
-    if (inQuotes) {
-      if (ch === '"' && line[i + 1] === '"') {
-        current += '"';
-        i += 1;
-      } else if (ch === '"') {
-        inQuotes = false;
-      } else {
-        current += ch;
-      }
-    } else if (ch === '"') {
-      inQuotes = true;
-    } else if (ch === ',') {
-      values.push(current);
-      current = '';
-    } else {
-      current += ch;
-    }
-  }
-
-  values.push(current);
-  return values;
+function createCentroidGroup(dims) {
+  return {
+    count: 0,
+    sum: new Array(dims).fill(0),
+  };
 }
 
-function featureVector(structural) {
-  const kd = structural.contact_features?.key_distances || {};
-  return [
-    structural.rmsd,
-    structural.radius_of_gyration,
-    kd['1-42'] ?? 0,
-    kd['1-28'] ?? 0,
-    kd['17-42'] ?? 0,
-    kd['11-42'] ?? 0,
-    kd['18-42'] ?? 0,
-  ];
+function addVector(group, vector) {
+  group.count += 1;
+  for (let i = 0; i < vector.length; i++) {
+    group.sum[i] += vector[i];
+  }
 }
 
-function centroid(vectors) {
-  const dims = vectors[0].length;
-  const mean = new Array(dims).fill(0);
-  for (const vector of vectors) {
-    for (let i = 0; i < dims; i++) {
-      mean[i] += vector[i];
-    }
-  }
-  for (let i = 0; i < dims; i++) {
-    mean[i] /= vectors.length;
-  }
-  return mean;
+function centroidFromGroup(group) {
+  if (!group.count) return null;
+  return group.sum.map((value) => value / group.count);
 }
 
 function euclideanDistance(a, b) {
@@ -87,94 +55,22 @@ function euclideanDistance(a, b) {
   return Math.sqrt(sum);
 }
 
-async function loadStructuralMap(structuralPath = STRUCTURAL_PATH) {
-  if (!fs.existsSync(structuralPath)) {
-    throw new Error(`Missing ${structuralPath}. Run preprocess:frame-structural first.`);
-  }
-
-  const map = new Map();
-  const stream = fs.createReadStream(structuralPath, { encoding: 'utf8' });
-  const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
-
-  let header = null;
-  for await (const line of rl) {
-    if (!line.trim()) continue;
-    if (!header) {
-      header = parseCsvLine(line);
-      continue;
-    }
-
-    const values = parseCsvLine(line);
-    const row = Object.fromEntries(header.map((col, i) => [col, values[i]]));
-    const key = `${row.system}|${row.trajectory_name}|${row.xtc_frame_index}`;
-
-    map.set(key, {
-      rmsd: Number.parseFloat(row.rmsd),
-      radius_of_gyration: Number.parseFloat(row.radius_of_gyration),
-      contact_features: JSON.parse(row.contact_features),
-      ligand_contact_features: JSON.parse(row.ligand_contact_features),
-    });
-  }
-
-  return map;
+function createTopK(topK) {
+  return {
+    topK,
+    items: [],
+  };
 }
 
-function resolveStructuralKey(row, concatLookups) {
-  if (row.trajectory_type === 'original') {
-    return `${row.system}|${row.trajectory_name}|${row.xtc_frame_index}`;
+function considerCandidate(store, candidate) {
+  store.items.push(candidate);
+  store.items.sort((a, b) => a.representative_score - b.representative_score);
+  if (store.items.length > store.topK) {
+    store.items.length = store.topK;
   }
-
-  const lookup = concatLookups.get(row.system);
-  const resolved = lookup?.get(`${row.trajectory_name}|${row.local_frame}`);
-  if (!resolved) return null;
-  return `${row.system}|${resolved.source_trajectory}|${resolved.xtc_frame_index}`;
 }
 
-function selectRepresentatives(frames, topK) {
-  if (!frames.length) return [];
-
-  const vectors = frames.map((frame) => frame.vector);
-  const center = centroid(vectors);
-
-  return frames
-    .map((frame) => ({
-      ...frame,
-      representative_score: euclideanDistance(frame.vector, center),
-    }))
-    .sort(
-      (a, b) =>
-        a.representative_score - b.representative_score ||
-        a.system.localeCompare(b.system) ||
-        a.trajectory_name.localeCompare(b.trajectory_name) ||
-        Number(a.local_frame) - Number(b.local_frame)
-    )
-    .slice(0, Math.min(topK, frames.length))
-    .map((frame, index) => ({
-      system: frame.system,
-      model: frame.model,
-      trajectory_type: frame.trajectory_type,
-      state: frame.state,
-      trajectory_name: frame.trajectory_name,
-      local_frame: frame.local_frame,
-      xtc_frame_index: frame.xtc_frame_index,
-      representative_rank: index + 1,
-      representative_score: Number(frame.representative_score.toFixed(6)),
-    }));
-}
-
-export async function buildRepresentativeFrames({
-  frameIndexPath = FRAME_INDEX_PATH,
-  structuralPath = STRUCTURAL_PATH,
-  outputPath = path.join(OUTPUT_DIR, 'representative_frames.csv'),
-  topK = DEFAULT_TOP_K,
-} = {}) {
-  const structuralMap = await loadStructuralMap(structuralPath);
-  const concatLookups = buildAllConcatLookups();
-  const groups = new Map();
-
-  let scanned = 0;
-  let matched = 0;
-
+async function streamFrameIndex(frameIndexPath, onRow) {
   const stream = fs.createReadStream(frameIndexPath, { encoding: 'utf8' });
   const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
 
@@ -186,21 +82,77 @@ export async function buildRepresentativeFrames({
       continue;
     }
 
-    scanned += 1;
     const values = parseCsvLine(line);
     const row = Object.fromEntries(header.map((col, i) => [col, values[i]]));
+    await onRow(row);
+  }
+}
 
-    const structuralKey = resolveStructuralKey(row, concatLookups);
-    if (!structuralKey) continue;
+export async function buildRepresentativeFrames({
+  frameIndexPath = FRAME_INDEX_PATH,
+  structuralPath = STRUCTURAL_PATH,
+  outputPath = path.join(OUTPUT_DIR, 'representative_frames.csv'),
+  topK = DEFAULT_TOP_K,
+} = {}) {
+  process.stdout.write('Building structural index database… ');
+  const { db } = await ensureStructuralIndexDb({ structuralPath });
+  process.stdout.write('done\n');
 
-    const structural = structuralMap.get(structuralKey);
-    if (!structural) continue;
+  const readers = createStructuralReaders(db);
+  const concatLookups = buildAllConcatLookups();
+  const centroidGroups = new Map();
+
+  let matched = 0;
+  let scanned = 0;
+
+  await streamFrameIndex(frameIndexPath, (row) => {
+    scanned += 1;
+    const parts = resolveStructuralParts(row, concatLookups);
+    if (!parts) return;
+
+    const vector = readers.readFeatureVector(
+      parts.system,
+      parts.trajectoryName,
+      parts.xtcFrameIndex
+    );
+    if (!vector) return;
 
     matched += 1;
     const groupKey = `${row.system}|${row.model}|${row.trajectory_type}|${row.state}`;
-    if (!groups.has(groupKey)) groups.set(groupKey, []);
+    if (!centroidGroups.has(groupKey)) {
+      centroidGroups.set(groupKey, createCentroidGroup(vector.length));
+    }
+    addVector(centroidGroups.get(groupKey), vector);
+  });
 
-    groups.get(groupKey).push({
+  const centroids = new Map();
+  for (const [groupKey, group] of centroidGroups) {
+    const centroid = centroidFromGroup(group);
+    if (centroid) centroids.set(groupKey, centroid);
+  }
+
+  const topKStores = new Map();
+  for (const groupKey of centroids.keys()) {
+    topKStores.set(groupKey, createTopK(topK));
+  }
+
+  await streamFrameIndex(frameIndexPath, (row) => {
+    const parts = resolveStructuralParts(row, concatLookups);
+    if (!parts) return;
+
+    const vector = readers.readFeatureVector(
+      parts.system,
+      parts.trajectoryName,
+      parts.xtcFrameIndex
+    );
+    if (!vector) return;
+
+    const groupKey = `${row.system}|${row.model}|${row.trajectory_type}|${row.state}`;
+    const centroid = centroids.get(groupKey);
+    const store = topKStores.get(groupKey);
+    if (!centroid || !store) return;
+
+    considerCandidate(store, {
       system: row.system,
       model: row.model,
       trajectory_type: row.trajectory_type,
@@ -208,13 +160,21 @@ export async function buildRepresentativeFrames({
       trajectory_name: row.trajectory_name,
       local_frame: row.local_frame,
       xtc_frame_index: row.xtc_frame_index,
-      vector: featureVector(structural),
+      representative_score: euclideanDistance(vector, centroid),
     });
-  }
+  });
 
   const outputRows = [];
-  for (const frames of groups.values()) {
-    outputRows.push(...selectRepresentatives(frames, topK));
+  for (const store of topKStores.values()) {
+    store.items
+      .sort((a, b) => a.representative_score - b.representative_score)
+      .forEach((item, index) => {
+        outputRows.push({
+          ...item,
+          representative_rank: index + 1,
+          representative_score: Number(item.representative_score.toFixed(6)),
+        });
+      });
   }
 
   outputRows.sort(
@@ -236,7 +196,7 @@ export async function buildRepresentativeFrames({
   return {
     scanned,
     matched,
-    groupCount: groups.size,
+    groupCount: centroids.size,
     rowCount: outputRows.length,
     outputPath,
   };

@@ -25,7 +25,7 @@ const RIBBON_CARTOON = {
   opacity: 0.65,
 };
 
-function renderViewer(viewer, stateColor) {
+function renderViewer(viewer, stateColor, residueHighlight = null) {
   viewer.setStyle({ model: -1 }, {});
   viewer.setStyle({ model: -1 }, { cartoon: RIBBON_CARTOON });
   viewer.addStyle(
@@ -38,6 +38,38 @@ function renderViewer(viewer, stateColor) {
       },
     }
   );
+
+  viewer.removeAllShapes();
+
+  if (residueHighlight?.i && residueHighlight?.j) {
+    const { i, j } = residueHighlight;
+    viewer.addStyle(
+      { model: -1, resi: [i, j], atom: 'CA' },
+      {
+        sphere: {
+          color: '#ff7a18',
+          radius: 0.75,
+          opacity: 1,
+        },
+      }
+    );
+
+    const model = viewer.getModel();
+    const caI = model?.selectedAtoms?.({ resi: i, atom: 'CA' })?.[0];
+    const caJ = model?.selectedAtoms?.({ resi: j, atom: 'CA' })?.[0];
+    if (caI && caJ) {
+      viewer.addCylinder({
+        start: { x: caI.x, y: caI.y, z: caI.z },
+        end: { x: caJ.x, y: caJ.y, z: caJ.z },
+        color: '#e74c3c',
+        radius: 0.12,
+        fromCap: 1,
+        toCap: 1,
+        dashed: true,
+      });
+    }
+  }
+
   viewer.zoomTo({ atom: 'CA' });
   viewer.resize();
   viewer.render(undefined, { regen: true });
@@ -117,7 +149,12 @@ function TrajectoryControls({
   );
 }
 
-export default function Viewer3D({ systems = [], defaultSystemId, viewerTarget = null }) {
+export default function Viewer3D({
+  systems = [],
+  defaultSystemId,
+  viewerTarget = null,
+  residueHighlight = null,
+}) {
   const [systemId, setSystemId] = useState(() => {
     if (defaultSystemId && systems.some((s) => s.systemId === defaultSystemId)) {
       return defaultSystemId;
@@ -266,7 +303,7 @@ export default function Viewer3D({ systems = [], defaultSystemId, viewerTarget =
         }
 
         applyCoordsToViewer(viewer, data.coords);
-        renderViewer(viewer, stateColor);
+        renderViewer(viewer, stateColor, residueHighlight);
       })
       .catch((err) => {
         if (!cancelled) setError(err.message);
@@ -278,7 +315,7 @@ export default function Viewer3D({ systems = [], defaultSystemId, viewerTarget =
     return () => {
       cancelled = true;
     };
-  }, [systemId, trajectoryName, frameIndex, status, stateColor]);
+  }, [systemId, trajectoryName, frameIndex, status, stateColor, residueHighlight]);
 
   if (!systems.length || !sortedRows.length) {
     return null;

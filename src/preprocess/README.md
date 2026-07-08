@@ -31,6 +31,7 @@ If that fails, npm’s Step 3 will fail too — `(base)` conda may use a differe
 npm run preprocess:frame-index              # Step 1
 npm run preprocess:trajectory-features    # Step 2
 npm run preprocess:frame-structural       # Step 3 (slow, hours)
+npm run preprocess:structural-index       # Step 3b (build SQLite cache, optional)
 npm run preprocess:state-summaries          # Step 4
 npm run preprocess:representative-frames    # Step 5
 ```
@@ -57,8 +58,8 @@ REPRESENTATIVE_TOP_K=10 npm run preprocess:representative-frames
 | **1** | `preprocess:frame-index` | `states*.txt`, `order.txt`, `concatenated.txt` | `frame_index.csv` | T1, T2, T3, 3D linking |
 | **2** | `preprocess:trajectory-features` | `frame_index.csv` | `trajectory_features.csv` | T1 fingerprint matrix, T2 clustering |
 | **3** | `preprocess:frame-structural` | `filtered.pdb`, `output.filtered.xtc` | `frame_structural_features.csv` | T3 RMSD, contacts, ligand |
-| **4** | `preprocess:state-summaries` | `frame_index.csv` + `frame_structural_features.csv` | `state_summary.csv`, `rmsd_by_state.csv`, `state_contact_maps.json`, `ligand_contacts.csv` | T3 state explanation |
-| **5** | `preprocess:representative-frames` | `frame_index.csv` + `frame_structural_features.csv` | `representative_frames.csv` | T3 representative 3D frames |
+| **4** | `preprocess:state-summaries` | `frame_index.csv` + `frame_structural_features.csv` | `state_summary.csv`, `rmsd_by_state.csv`, `state_contact_maps.json`, `ligand_contacts.csv`, `structural_index.db` | T3 state explanation |
+| **5** | `preprocess:representative-frames` | `frame_index.csv` + `frame_structural_features.csv` (+ db cache) | `representative_frames.csv` | T3 representative 3D frames |
 
 ---
 
