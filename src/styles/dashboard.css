@@ -217,6 +217,42 @@ body {
   margin: 0;
 }
 
+.title-dialog-body p + p {
+  margin-top: 10px;
+}
+
+.title-dialog-body a {
+  color: #1565c0;
+  text-decoration: none;
+}
+
+.title-dialog-body a:hover {
+  text-decoration: underline;
+}
+
+.title-dialog-about-author {
+  padding-top: 10px;
+  border-top: 1px solid var(--divider);
+}
+
+.title-dialog-intro {
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--divider);
+  color: #333;
+}
+
+.title-dialog-section + .title-dialog-section {
+  margin-top: 10px;
+}
+
+.title-dialog-section-heading {
+  margin: 0 0 4px;
+  font-size: var(--ui-font-title);
+  font-weight: 600;
+  color: #1a1a2e;
+}
+
 .dashboard-header h1 {
   margin: 0 0 4px;
   font-size: 1.5rem;
