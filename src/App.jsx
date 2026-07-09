@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import Title from './components/Title';
 import ControlPanel from './components/ControlPanel';
 import Comparison from './components/comparison/Comparison';
 import Compare from './components/compare/Compare';
@@ -68,6 +69,8 @@ export default function App() {
 
   return (
     <div className="dashboard">
+      <Title />
+
       <ControlPanel
         selectedSystems={selectedSystems}
         onSystemsChange={setSelectedSystems}

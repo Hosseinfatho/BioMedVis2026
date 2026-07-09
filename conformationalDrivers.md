@@ -16,4 +16,64 @@ Visualization encodings
 Gray arc → shared interaction
 Green #1b9e77 above → TMP stronger
 Orange #d95f02 below → SPA stronger
-Arc width → strength · opacity → persistence · node size → proximity
+Arc width → frequency · opacity → persistence · arc length → proximity
+
+
+Strength:
+per frame, per residue pair, within the same Markov state.
+
+For each frame assigned to a given state:
+
+Take all heavy atoms in residue i (not name H*)
+Take all heavy atoms in residue j
+Compute every pairwise distance between them
+Use the minimum of those distances as that pair’s distance for that frame
+Only pairs with sequence separation ≥ 3 are included (e.g. R1–R5, not R1–R2).
+
+Then, for a fixed system + model + state, all frames in that state are combined:
+
+distances are histogrammed
+mean_soft is the average soft-contact score over those frames
+So it is not one fixed atom pair (like CA–CA only); it is the closest heavy-atom contact between the two residues in each frame, then averaged over the state’s frames.
+
+
+
+
+
+ligand row:
+
+What is the ligand?
+TMP and SPA are small drug molecules (not part of the protein). They bind near Aβ42 in the simulation. Each amino acid (residue) is one building block of the protein — R1, R23, R42, and so on.
+Ligand contact means: this amino acid is close to the drug in that state.
+
+
+
+igand contact means a residue that is close to the drug molecule (ligand) in the simulation — for this project, TMP (zsab3) or SPA (zsab4).
+
+For each frame in a Markov state, the code finds the minimum distance between any heavy atom on that residue and any heavy atom on the ligand. Those distances are averaged over frames and turned into a soft-contact strength (same idea as residue–residue interactions).
+
+In the StateDriver plot, the colored circles below the hill are ligand contacts:
+
+Each circle sits under the residue number it refers to (e.g. R23).
+Color = system (green = TMP, orange = SPA).
+Size = contact strength (closer / stronger → bigger).
+Click = select that residue’s ligand contact (highlight in 3D and show details in the meta bar).
+Free Aβ42 (zsab2) has no ligand, so it usually has no ligand-contact row. Only ligand-bound systems (TMP, SPA) show these markers.
+
+Example (intuitive)
+Imagine the drug near residue 23:
+
+Some atom on R23 might be 4.2 Å from the drug
+Another might be 6.8 Å
+The closest might be 3.1 Å
+Minimum distance = 3.1 Å for that frame.
+
+If in many frames R23 stays around 3–5 Å from TMP → strong ligand contact.
+If it is usually 15–20 Å away → weak or no contact.
+
+Does it mean the amino acid “interacts” with TMP/SPA?
+Mostly yes, in a geometric sense:
+
+Small minimum distance → that amino acid is often near the drug → likely contact / binding region.
+Large minimum distance → that amino acid is far from the drug → not a main contact site in that state.
+It does not by itself prove a specific chemical interaction (hydrogen bond, hydrophobic, etc.). It only measures closeness in 3D space, averaged over frames in that Markov state.

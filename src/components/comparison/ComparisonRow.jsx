@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 import TrajectoryRows from '../TrajectoryRows';
 import State from '../State';
-import ComparisonHeader from './ComparisonHeader';
 import { alignedMotifOccurrencesForSystem } from '../../utils/motifs';
 
 export default function ComparisonRow({
@@ -37,11 +36,6 @@ export default function ComparisonRow({
 
   return (
     <div className="comparison-row">
-      <ComparisonHeader
-        systemId={systemId}
-        rowCount={rows.length}
-        viewMode={viewMode}
-      />
       <div className="comparison-charts">
         <div className="panel-half panel-epoch">
           <TrajectoryRows

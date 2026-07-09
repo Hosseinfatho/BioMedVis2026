@@ -326,67 +326,81 @@ export default function Compare({
   const showResult = applied && !loading && !error && !sameSystem && !!dataB;
 
   return (
-    <div className="compare">
-      <div className="compare-toolbar">
-        <label className="compare-select">
-          System A
-          <select value={systemA} onChange={(e) => setSystemA(e.target.value)}>
-            {SYSTEM_IDS.map((id) => (
-              <option key={id} value={id}>
-                {SYSTEMS[id].label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <span className="compare-vs">vs</span>
-        <label className="compare-select">
-          System B
-          <select value={systemB} onChange={(e) => setSystemB(e.target.value)}>
-            {SYSTEM_IDS.map((id) => (
-              <option key={id} value={id}>
-                {SYSTEMS[id].label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button
-          type="button"
-          className="generate-btn compare-toolbar-btn"
-          onClick={() => setApplied(true)}
-          disabled={loading || sameSystem}
-        >
-          {loading ? 'Loading…' : 'Compare'}
-        </button>
-        <label className="compare-select compare-alignment">
-          Alignment
-          <select
-            value={alignmentId}
-            onChange={(e) => setAlignmentId(e.target.value)}
-          >
-            {alignmentOptions.map((opt) => (
-              <option key={opt.id} value={opt.id}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        </label>
+    <>
+      <div className="compare">
+        <div className="compare-toolbar">
+          <div className="compare-toolbar-section compare-toolbar-section--systems">
+            <label className="compare-select">
+              <span className="panel-field-label">System A</span>
+              <select value={systemA} onChange={(e) => setSystemA(e.target.value)}>
+                {SYSTEM_IDS.map((id) => (
+                  <option key={id} value={id}>
+                    {SYSTEMS[id].label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <span className="compare-vs">vs</span>
+            <label className="compare-select">
+              <span className="panel-field-label">System B</span>
+              <select value={systemB} onChange={(e) => setSystemB(e.target.value)}>
+                {SYSTEM_IDS.map((id) => (
+                  <option key={id} value={id}>
+                    {SYSTEMS[id].label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              className="generate-btn compare-toolbar-btn"
+              onClick={() => setApplied(true)}
+              disabled={loading || sameSystem}
+            >
+              {loading ? 'Loading…' : 'Compare'}
+            </button>
+          </div>
+
+          <span className="compare-toolbar-divider" aria-hidden="true">
+            |
+          </span>
+
+          <div className="compare-toolbar-section compare-toolbar-section--alignment">
+            <label className="compare-select compare-alignment">
+              <span className="panel-field-label">Alignment</span>
+              <select
+                value={alignmentId}
+                onChange={(e) => setAlignmentId(e.target.value)}
+              >
+                {alignmentOptions.map((opt) => (
+                  <option key={opt.id} value={opt.id}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <span className="compare-toolbar-divider" aria-hidden="true">
+            |
+          </span>
+
+          <div className="compare-toolbar-section compare-toolbar-section--motif">
+            {!loading && !error && dataA ? (
+              <MotifPanel
+                numStates={numStates}
+                onActiveMotifChange={onActiveMotifChange}
+              />
+            ) : null}
+          </div>
+        </div>
+
+        {error && <div className="error-banner compare-banner">{error}</div>}
+        {loading && <div className="empty-state compare-banner">Loading…</div>}
 
         {!loading && !error && dataA && (
-          <>
-            <span className="compare-toolbar-sep" aria-hidden="true" />
-            <MotifPanel
-              numStates={numStates}
-              onActiveMotifChange={onActiveMotifChange}
-            />
-          </>
-        )}
-      </div>
-
-      {error && <div className="error-banner">{error}</div>}
-      {loading && <div className="empty-state">Loading…</div>}
-
-      {!loading && !error && dataA && (
-        <div className="compare-matrix-stack">
+          <div className="compare-body">
+            <div className="compare-matrix-stack">
           {colCount > 0 && (
             <Trace
               dataA={dataA}
@@ -482,8 +496,10 @@ export default function Compare({
               />
             </>
           )}
-        </div>
-      )}
+            </div>
+          </div>
+        )}
+      </div>
 
       {!loading && !error && Object.keys(systemsData).length > 0 && (
         <Analysis3D
@@ -493,6 +509,6 @@ export default function Compare({
           viewerTarget={residueViewerTarget}
         />
       )}
-    </div>
+    </>
   );
 }

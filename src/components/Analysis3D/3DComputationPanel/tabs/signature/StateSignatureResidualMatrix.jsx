@@ -88,7 +88,7 @@ export default function StateSignatureResidualMatrix({
     const ctx = canvas.getContext('2d');
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, width, height);
-    ctx.fillStyle = '#fafafa';
+    ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, width, height);
 
     for (let row = 0; row < size; row += 1) {

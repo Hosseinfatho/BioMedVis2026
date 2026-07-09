@@ -1,6 +1,6 @@
 import { getMarkovStateColor } from '../../utils/constants';
 
-const MATRIX_BG = [250, 250, 250]; // #fafafa — match compare matrix panels
+const MATRIX_BG = [255, 255, 255]; // #fff — match panel surfaces
 
 function heatColor(v, maxV) {
   const denom = maxV > 0 ? maxV : 1;

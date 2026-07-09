@@ -1,12 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import $3Dmol from '3dmol';
 import { getMarkovStateColor } from '../../../utils/constants';
+import { stateOptionsForModel } from '../../../utils/conformationalDriversData';
 import { sortTrajectories } from '../../../utils/sortTrajectories';
 import { DEFAULT_FRAME, DEFAULT_TRAJECTORY, pdbUrl } from './trajectoryConfig';
 import { applyCoordsToViewer, loadFrameCoords } from './viewerTrajectory';
 import Viewer3DColorBar from './Viewer3DColorBar';
 
-export const RESIDUE_VIEWER_TITLE = 'Residue viewer';
+export const VIEWER_3D_TAB_LABEL = '3DViewer';
 
 function initialTrajectory(rows) {
   if (!rows?.length) return DEFAULT_TRAJECTORY;
@@ -24,6 +25,25 @@ const RIBBON_CARTOON = {
   tubes: false,
   opacity: 0.65,
 };
+
+function zoomToResidueClose(viewer, resi) {
+  const model = viewer.getModel();
+  const caAtoms = model?.selectedAtoms?.({ resi, atom: 'CA' }) ?? [];
+  if (caAtoms.length > 0) {
+    viewer.zoomTo({ resi, atom: 'CA' });
+    viewer.zoom(0.20);
+    return;
+  }
+
+  const resAtoms = model?.selectedAtoms?.({ resi }) ?? [];
+  if (resAtoms.length > 0) {
+    viewer.zoomTo({ resi });
+    viewer.zoom(0.20);
+    return;
+  }
+
+  viewer.zoomTo({ atom: 'CA' });
+}
 
 function renderViewer(viewer, stateColor, residueHighlight = null) {
   viewer.setStyle({ model: -1 }, {});
@@ -68,11 +88,51 @@ function renderViewer(viewer, stateColor, residueHighlight = null) {
         dashed: true,
       });
     }
+  } else if (residueHighlight?.i) {
+    const { i } = residueHighlight;
+    viewer.addStyle(
+      { model: -1, resi: i },
+      {
+        cartoon: {
+          color: '#ff7a18',
+          opacity: 0.95,
+        },
+      }
+    );
+    viewer.addStyle(
+      { model: -1, resi: i, atom: 'CA' },
+      {
+        sphere: {
+          color: '#ff7a18',
+          radius: 0.85,
+          opacity: 1,
+        },
+      }
+    );
   }
 
-  viewer.zoomTo({ atom: 'CA' });
+  if (residueHighlight?.i && !residueHighlight?.j) {
+    zoomToResidueClose(viewer, residueHighlight.i);
+  } else {
+    viewer.zoomTo({ atom: 'CA' });
+  }
   viewer.resize();
   viewer.render(undefined, { regen: true });
+}
+
+function firstFrameForState(states, targetState, preferredIndex = 0) {
+  const target = Number(targetState);
+  if (!states?.length || !Number.isFinite(target)) return -1;
+  const fromPreferred = states.findIndex(
+    (state, index) => Number(state) === target && index >= preferredIndex
+  );
+  if (fromPreferred >= 0) return fromPreferred;
+  return states.findIndex((state) => Number(state) === target);
+}
+
+function frameStateAt(row, frameIndex) {
+  const state = row?.states?.[frameIndex];
+  return Number.isFinite(Number(state)) ? Number(state) : 0;
 }
 
 function TrajectoryControls({
@@ -84,7 +144,9 @@ function TrajectoryControls({
   onTrajectoryChange,
   frameIndex,
   onFrameChange,
-  markovState,
+  selectedState,
+  stateOptions,
+  onStateChange,
   stateColor,
 }) {
   const selected =
@@ -100,7 +162,7 @@ function TrajectoryControls({
   return (
     <div className="viewer-3d-controls">
       <select
-        className="viewer-3d-select"
+        className="viewer-3d-select viewer-3d-select--system"
         value={systemId}
         onChange={(e) => onSystemChange(e.target.value)}
         aria-label="System"
@@ -113,7 +175,7 @@ function TrajectoryControls({
       </select>
 
       <select
-        className="viewer-3d-select"
+        className="viewer-3d-select viewer-3d-select--trajectory"
         value={trajectoryName}
         onChange={(e) => onTrajectoryChange(e.target.value)}
         aria-label="Trajectory"
@@ -138,12 +200,25 @@ function TrajectoryControls({
         ))}
       </select>
 
+      <select
+        className="viewer-3d-select viewer-3d-select--state"
+        value={selectedState}
+        onChange={(e) => onStateChange(Number(e.target.value))}
+        aria-label="State"
+      >
+        {stateOptions.map((state) => (
+          <option key={state} value={state}>
+            State-{state}
+          </option>
+        ))}
+      </select>
+
       <div
         className="viewer-3d-state-badge"
         style={{ color: stateColor, borderColor: stateColor }}
-        aria-label={`State S${markovState}`}
+        aria-label={`State S${selectedState}`}
       >
-        S{markovState}
+        S{selectedState}
       </div>
     </div>
   );
@@ -152,7 +227,11 @@ function TrajectoryControls({
 export default function Viewer3D({
   systems = [],
   defaultSystemId,
+  defaultModelId = 'states2',
+  markovState,
+  onMarkovStateChange,
   viewerTarget = null,
+  onViewerTargetChange,
   residueHighlight = null,
 }) {
   const [systemId, setSystemId] = useState(() => {
@@ -170,6 +249,7 @@ export default function Viewer3D({
   const [error, setError] = useState(null);
   const [trajectoryName, setTrajectoryName] = useState(DEFAULT_TRAJECTORY);
   const [frameIndex, setFrameIndex] = useState(DEFAULT_FRAME);
+  const [selectedState, setSelectedState] = useState(0);
 
   const activeSystem = useMemo(
     () => systems.find((system) => system.systemId === systemId) ?? systems[0],
@@ -188,20 +268,94 @@ export default function Viewer3D({
     [sortedRows, trajectoryName]
   );
 
-  const markovState = selectedRow?.states?.[frameIndex] ?? 0;
-  const stateColor = getMarkovStateColor(markovState);
+  const frameState = frameStateAt(selectedRow, frameIndex);
+  const stateColor = getMarkovStateColor(selectedState);
+
+  const stateOptions = useMemo(
+    () => stateOptionsForModel(defaultModelId),
+    [defaultModelId]
+  );
+
+  const handleFrameChange = useCallback(
+    (nextFrame) => {
+      const frameState = frameStateAt(selectedRow, nextFrame);
+      setFrameIndex(nextFrame);
+      setSelectedState(frameState);
+      onMarkovStateChange?.(frameState);
+      onViewerTargetChange?.({
+        systemId,
+        trajectoryName,
+        frameIndex: nextFrame,
+        state: frameState,
+      });
+    },
+    [selectedRow, systemId, trajectoryName, onMarkovStateChange, onViewerTargetChange]
+  );
+
+  const handleStateChange = useCallback(
+    (nextState) => {
+      const target = Number(nextState);
+      if (!Number.isFinite(target)) return;
+      setSelectedState(target);
+      onMarkovStateChange?.(target);
+      const states = selectedRow?.states ?? [];
+      const nextFrame = firstFrameForState(states, target, 0);
+      const resolvedFrame = nextFrame >= 0 ? nextFrame : frameIndex;
+      if (nextFrame >= 0) {
+        setFrameIndex(nextFrame);
+      }
+      onViewerTargetChange?.({
+        systemId,
+        trajectoryName,
+        frameIndex: resolvedFrame,
+        state: target,
+      });
+    },
+    [
+      selectedRow,
+      systemId,
+      trajectoryName,
+      frameIndex,
+      onMarkovStateChange,
+      onViewerTargetChange,
+    ]
+  );
+
+  useEffect(() => {
+    if (markovState == null || !Number.isFinite(Number(markovState))) return;
+    const next = Number(markovState);
+    if (next !== selectedState) {
+      setSelectedState(next);
+    }
+  }, [markovState, selectedState]);
 
   useEffect(() => {
     if (!viewerTarget?.systemId || !viewerTarget?.trajectoryName) return;
     if (!systems.some((system) => system.systemId === viewerTarget.systemId)) return;
+    const nextFrame =
+      viewerTarget.frameIndex != null ? viewerTarget.frameIndex : 0;
+    const targetSystem = systems.find((system) => system.systemId === viewerTarget.systemId);
+    const targetRow = targetSystem?.trajectoryRows?.find(
+      (row) => row.name === viewerTarget.trajectoryName
+    );
     setSystemId(viewerTarget.systemId);
     setTrajectoryName(viewerTarget.trajectoryName);
-    setFrameIndex(viewerTarget.frameIndex ?? 0);
+    setFrameIndex(nextFrame);
+    if (viewerTarget.state != null && Number.isFinite(Number(viewerTarget.state))) {
+      setSelectedState(Number(viewerTarget.state));
+      onMarkovStateChange?.(Number(viewerTarget.state));
+    } else {
+      const syncedState = frameStateAt(targetRow, nextFrame);
+      setSelectedState(syncedState);
+      onMarkovStateChange?.(syncedState);
+    }
   }, [
     viewerTarget?.systemId,
     viewerTarget?.trajectoryName,
     viewerTarget?.frameIndex,
+    viewerTarget?.state,
     systems,
+    onMarkovStateChange,
   ]);
 
   useEffect(() => {
@@ -216,16 +370,21 @@ export default function Viewer3D({
     if (!sortedRows.length) return;
     const exists = sortedRows.some((row) => row.name === trajectoryName);
     if (!exists) {
-      setTrajectoryName(initialTrajectory(sortedRows));
+      const nextTrajectory = initialTrajectory(sortedRows);
+      const nextRow = sortedRows.find((row) => row.name === nextTrajectory);
+      setTrajectoryName(nextTrajectory);
       setFrameIndex(0);
+      setSelectedState(frameStateAt(nextRow, 0));
     }
   }, [sortedRows, trajectoryName]);
 
   useEffect(() => {
     if (!selectedRow) return;
     const maxFrame = Math.max(0, selectedRow.length - 1);
-    if (frameIndex > maxFrame) setFrameIndex(maxFrame);
-  }, [selectedRow, frameIndex]);
+    if (frameIndex > maxFrame) {
+      handleFrameChange(maxFrame);
+    }
+  }, [selectedRow, frameIndex, handleFrameChange]);
 
   useEffect(() => {
     if (!systemId) return undefined;
@@ -242,7 +401,7 @@ export default function Viewer3D({
     viewerRef.current = null;
 
     const viewer = $3Dmol.createViewer(container, {
-      backgroundColor: '#fafafa',
+      backgroundColor: '#ffffff',
     });
     viewerRef.current = viewer;
 
@@ -303,7 +462,7 @@ export default function Viewer3D({
         }
 
         applyCoordsToViewer(viewer, data.coords);
-        renderViewer(viewer, stateColor, residueHighlight);
+        renderViewer(viewer, getMarkovStateColor(selectedState), residueHighlight);
       })
       .catch((err) => {
         if (!cancelled) setError(err.message);
@@ -315,7 +474,7 @@ export default function Viewer3D({
     return () => {
       cancelled = true;
     };
-  }, [systemId, trajectoryName, frameIndex, status, stateColor, residueHighlight]);
+  }, [systemId, trajectoryName, frameIndex, status, selectedState, residueHighlight]);
 
   if (!systems.length || !sortedRows.length) {
     return null;
@@ -324,51 +483,79 @@ export default function Viewer3D({
   const handleSystemChange = (nextSystemId) => {
     const nextSystem = systems.find((system) => system.systemId === nextSystemId);
     if (!nextSystem) return;
+    const nextTrajectory = initialTrajectory(nextSystem.trajectoryRows);
+    const nextRow = nextSystem.trajectoryRows?.find((row) => row.name === nextTrajectory);
     setSystemId(nextSystemId);
-    setTrajectoryName(initialTrajectory(nextSystem.trajectoryRows));
+    setTrajectoryName(nextTrajectory);
     setFrameIndex(0);
+    setSelectedState(frameStateAt(nextRow, 0));
   };
 
   return (
-    <div className="viewer-3d">
-      <div className="viewer-3d-toolbar">
-        <h3 className="viewer-3d-title">{RESIDUE_VIEWER_TITLE}</h3>
-        <TrajectoryControls
-        systems={systems}
-        systemId={systemId}
-        onSystemChange={handleSystemChange}
-        trajectoryRows={sortedRows}
-        trajectoryName={trajectoryName}
-        onTrajectoryChange={(name) => {
-          setTrajectoryName(name);
-          setFrameIndex(0);
-        }}
-        frameIndex={frameIndex}
-        onFrameChange={setFrameIndex}
-        markovState={markovState}
-        stateColor={stateColor}
-        />
+    <section className="viewer-3d-panel" aria-label="3D viewer panel">
+      <div className="viewer-3d-panel-header">
+        <div className="viewer-3d-panel-tabs" role="tablist" aria-label="3D viewer views">
+          <button
+            type="button"
+            role="tab"
+            className="viewer-3d-panel-tab is-active"
+            aria-selected
+            id="viewer-3d-tab-main"
+            aria-controls="viewer-3d-panel-main"
+          >
+            {VIEWER_3D_TAB_LABEL}
+          </button>
+        </div>
+
+        <div className="viewer-3d-toolbar">
+          <TrajectoryControls
+            systems={systems}
+            systemId={systemId}
+            onSystemChange={handleSystemChange}
+            trajectoryRows={sortedRows}
+            trajectoryName={trajectoryName}
+            onTrajectoryChange={(name) => {
+              const nextRow = sortedRows.find((row) => row.name === name);
+              setTrajectoryName(name);
+              setFrameIndex(0);
+              setSelectedState(frameStateAt(nextRow, 0));
+            }}
+            frameIndex={frameIndex}
+            onFrameChange={handleFrameChange}
+            selectedState={selectedState}
+            stateOptions={stateOptions}
+            onStateChange={handleStateChange}
+            stateColor={stateColor}
+          />
+        </div>
       </div>
 
-      {status === 'loading' && (
-        <div className="viewer-3d-status">Loading residues…</div>
-      )}
-      {frameLoading && status === 'ready' && (
-        <div className="viewer-3d-status">Loading frame…</div>
-      )}
-      {status === 'error' && <div className="viewer-3d-error">{error}</div>}
-      {status === 'ready' && error && (
-        <div className="viewer-3d-error">{error}</div>
-      )}
+      <div
+        className="viewer-3d-panel-body"
+        role="tabpanel"
+        id="viewer-3d-panel-main"
+        aria-labelledby="viewer-3d-tab-main"
+      >
+        {status === 'loading' && (
+          <div className="viewer-3d-status">Loading residues…</div>
+        )}
+        {frameLoading && status === 'ready' && (
+          <div className="viewer-3d-status">Loading frame…</div>
+        )}
+        {status === 'error' && <div className="viewer-3d-error">{error}</div>}
+        {status === 'ready' && error && (
+          <div className="viewer-3d-error">{error}</div>
+        )}
 
-      <div className="viewer-3d-body">
-        <div
-          ref={containerRef}
-          className="viewer-3d-canvas"
-          aria-label={`Residue view for ${activeSystem?.label ?? systemId}, ${trajectoryName}, frame ${frameIndex}, state ${markovState}`}
-        />
-        <Viewer3DColorBar />
+        <div className="viewer-3d-body">
+          <div
+            ref={containerRef}
+            className="viewer-3d-canvas"
+            aria-label={`3D view for ${activeSystem?.label ?? systemId}, ${trajectoryName}, frame ${frameIndex}, state ${frameState}`}
+          />
+          <Viewer3DColorBar />
+        </div>
       </div>
-    </div>
+    </section>
   );
 }

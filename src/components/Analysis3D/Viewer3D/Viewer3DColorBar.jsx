@@ -15,17 +15,17 @@ export default function Viewer3DColorBar({
       className="viewer-3d-colorbar"
       aria-label="Residue position color scale for ribbon"
     >
-      <div className="viewer-3d-colorbar-title">Residue</div>
-
       <div className="viewer-3d-colorbar-track">
+        <span className="viewer-3d-colorbar-label viewer-3d-colorbar-label--top">
+          1 (N)
+        </span>
         <div
           className="viewer-3d-colorbar-gradient"
           style={{ background: gradient }}
         />
-        <div className="viewer-3d-colorbar-labels">
-          <span>1 (N)</span>
-          <span>{residueCount} (C)</span>
-        </div>
+        <span className="viewer-3d-colorbar-label viewer-3d-colorbar-label--bottom">
+          {residueCount} (C)
+        </span>
       </div>
     </div>
   );

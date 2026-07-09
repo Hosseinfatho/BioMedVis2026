@@ -53,6 +53,8 @@ function percentileValue(sortedValues, percentile) {
 }
 
 export const STATE_SIGNATURE_DEFAULT_DISPLACEMENT_PERCENT = 1;
+/** Top pairs list: |j − i| must be greater than this (same as StateDriver MIN_SEQ_SEP − 1). */
+export const SIGNATURE_TOP_PAIR_MIN_SEQ_DIFF = 2;
 
 export function getSignatureResidualMeta(signatureResiduals) {
   const meta = signatureResiduals?._meta ?? {};
@@ -212,6 +214,7 @@ export function buildSignatureResidualMatrix(
   const maxValue = Math.max(minValue + 0.01, percentileValue(fractions, 0.95));
 
   const topPairs = [...pairs]
+    .filter((pair) => Math.abs(pair.j - pair.i) > SIGNATURE_TOP_PAIR_MIN_SEQ_DIFF)
     .sort(
       (a, b) =>
         b.stableFraction - a.stableFraction ||

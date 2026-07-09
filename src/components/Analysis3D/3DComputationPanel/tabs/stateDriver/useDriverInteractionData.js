@@ -7,7 +7,6 @@ import {
   buildLigandRows,
   buildMultiSystemEdges,
   computeNodeProximityScores,
-  filterArcEdgesForSystems,
   groupKey,
   sortSystems,
 } from './stateDriverMetrics';
@@ -33,7 +32,7 @@ function loadInteractions() {
   return interactionsPromise;
 }
 
-export function useStateDriverData(modelId, state, activeSystems = ALL_SYSTEMS) {
+export function useDriverInteractionData(modelId, markovState, activeSystems = ALL_SYSTEMS) {
   const [interactions, setInteractions] = useState(null);
   const [representativeRows, setRepresentativeRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -73,7 +72,8 @@ export function useStateDriverData(modelId, state, activeSystems = ALL_SYSTEMS) 
 
     if (!interactions || systems.length === 0) {
       return {
-        residueResidueEdges: [],
+        allEligibleEdges: [],
+        eligibleArcCount: 0,
         ligandRows: [],
         nodeProximity: new Map(),
         activeSystems: systems,
@@ -88,7 +88,7 @@ export function useStateDriverData(modelId, state, activeSystems = ALL_SYSTEMS) 
     const representatives = { ...emptyRepresentatives };
 
     for (const systemId of systems) {
-      const key = groupKey(systemId, modelId, TRAJECTORY_TYPE, state);
+      const key = groupKey(systemId, modelId, TRAJECTORY_TYPE, markovState);
       entriesBySystem[systemId] = interactions[key];
       frameCounts[systemId] = interactions[key]?.total_frames ?? 0;
       representatives[systemId] = findRepresentativeFrame(
@@ -96,17 +96,18 @@ export function useStateDriverData(modelId, state, activeSystems = ALL_SYSTEMS) 
         systemId,
         modelId,
         TRAJECTORY_TYPE,
-        state
+        markovState
       );
     }
 
     const allEdges = buildMultiSystemEdges(entriesBySystem, systems);
-    const residueResidueEdges = filterArcEdgesForSystems(allEdges, systems);
+    const allEligibleEdges = allEdges.filter((e) => e.displayStrength > 0.01);
     const ligandRows = buildLigandRows(entriesBySystem, systems);
     const nodeProximity = computeNodeProximityScores(allEdges, ligandRows);
 
     return {
-      residueResidueEdges,
+      allEligibleEdges,
+      eligibleArcCount: allEligibleEdges.length,
       ligandRows,
       nodeProximity,
       activeSystems: systems,
@@ -114,7 +115,7 @@ export function useStateDriverData(modelId, state, activeSystems = ALL_SYSTEMS) 
       frameCounts,
       representatives,
     };
-  }, [interactions, modelId, state, representativeRows, systems]);
+  }, [interactions, modelId, markovState, representativeRows, systems]);
 
-  return { loading, error, bundle };
+  return { loading, error, bundle, representativeRows };
 }
