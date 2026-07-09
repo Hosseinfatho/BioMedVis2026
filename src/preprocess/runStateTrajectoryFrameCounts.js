@@ -1,8 +1,11 @@
-import { buildStateTrajectoryFrameCounts } from './buildStateTrajectoryFrameCounts.js';
+import {
+  buildStateTrajectoryFrameCounts,
+  DEFAULT_PERCENTILE,
+} from './buildStateTrajectoryFrameCounts.js';
 
 const thresholdPercentile = process.env.THRESHOLD_PERCENTILE
   ? Number.parseFloat(process.env.THRESHOLD_PERCENTILE)
-  : 60;
+  : DEFAULT_PERCENTILE;
 
 async function main() {
   process.stdout.write(

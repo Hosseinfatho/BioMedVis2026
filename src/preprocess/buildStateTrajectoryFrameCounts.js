@@ -13,7 +13,7 @@ import {
 const FRAME_INDEX_PATH = path.join(OUTPUT_DIR, 'frame_index.csv');
 const REPRESENTATIVE_PATH = path.join(OUTPUT_DIR, 'representative_frames.csv');
 const DEFAULT_OUTPUT = path.join(OUTPUT_DIR, 'state_trajectory_frame_counts.json');
-const DEFAULT_PERCENTILE = 60;
+export const DEFAULT_PERCENTILE = 10;
 
 function euclideanDistance(a, b) {
   let sum = 0;

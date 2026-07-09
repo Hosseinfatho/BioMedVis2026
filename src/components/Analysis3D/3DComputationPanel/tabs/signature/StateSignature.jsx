@@ -293,11 +293,11 @@ export default function StateSignature({
       {innerTab === 'residues' && (
         <>
           <div className="state-sig-threshold-row">
-            <label className="state-sig-threshold-label" htmlFor="state-sig-displacement">
-              Max displacement (%)
+            <label className="state-sig-threshold-label" htmlFor="state-sig-stability-tolerance">
+              Stability tolerance (%)
             </label>
             <input
-              id="state-sig-displacement"
+              id="state-sig-stability-tolerance"
               className="viewer-3d-select state-sig-threshold-input"
               type="number"
               min={0.1}

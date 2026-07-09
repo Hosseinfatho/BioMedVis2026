@@ -14,7 +14,8 @@
     "preprocess:state-summaries": "node --max-old-space-size=8192 src/preprocess/runStateSummaries.js",
     "preprocess:representative-frames": "node --max-old-space-size=8192 src/preprocess/runRepresentativeFrames.js",
     "preprocess:state-trajectory-frame-counts": "node --max-old-space-size=8192 src/preprocess/runStateTrajectoryFrameCounts.js",
-    "preprocess:signature-residuals": "node --max-old-space-size=8192 src/preprocess/runSignatureResiduals.js"
+    "preprocess:signature-residuals": "node --max-old-space-size=8192 src/preprocess/runSignatureResiduals.js",
+    "preprocess:state-driver-interactions": "node --max-old-space-size=8192 src/preprocess/runStateDriverInteractions.js"
   },
   "dependencies": {
     "3dmol": "^2.5.5",

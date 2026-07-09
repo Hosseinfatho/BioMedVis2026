@@ -1,49 +1,33 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { MODELS, SYSTEMS } from '../../../../../config/dataFiles';
+import { MODELS } from '../../../../../config/dataFiles';
 import { getMarkovStateColor } from '../../../../../utils/constants';
+import { stateOptionsForModel } from '../../../../../utils/conformationalDriversData';
+import DifferentialArcInteractionDiagram from './DifferentialArcInteractionDiagram';
+import InteractionLegend from './InteractionLegend';
+import LigandContactRows from './LigandContactRows';
 import {
-  buildResidualContactMatrix,
-  filterRmsdDistribution,
-  filterStateSummary,
-  findRepresentativeFrame,
-  loadContactMaps,
-  loadRepresentativeFrameRows,
-  loadRmsdByStateRows,
-  loadStateSummaryRows,
-  stateOptionsForModel,
-} from '../../../../../utils/conformationalDriversData';
-import ConformationalDriverMatrix from './ConformationalDriverMatrix';
-import RMSDStateSummary from './RMSDStateSummary';
-import TopResidualPairs from './TopResidualPairs';
-
-const SYSTEM_IDS = Object.keys(SYSTEMS);
-const TRAJECTORY_TYPE = 'original';
+  ALL_SYSTEMS,
+  sortSystems,
+  systemLabel,
+} from './stateDriverMetrics';
+import { useStateDriverData } from './useStateDriverData';
 
 export default function StateDriver({
-  defaultSystemId,
   defaultModelId = 'states2',
   systems = [],
   onViewerTargetChange,
   onResidueHighlightChange,
 }) {
-  const [systemId, setSystemId] = useState(
-    () => defaultSystemId || SYSTEM_IDS[0]
-  );
   const [modelId, setModelId] = useState(defaultModelId);
   const [state, setState] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [contactMaps, setContactMaps] = useState(null);
-  const [stateSummaryRows, setStateSummaryRows] = useState([]);
-  const [rmsdRows, setRmsdRows] = useState([]);
-  const [representativeRows, setRepresentativeRows] = useState([]);
-  const [selectedPair, setSelectedPair] = useState(null);
+  const [activeSystems, setActiveSystems] = useState([...ALL_SYSTEMS]);
+  const [selectedEdge, setSelectedEdge] = useState(null);
+  const [selectedContact, setSelectedContact] = useState(null);
 
-  useEffect(() => {
-    if (defaultSystemId && SYSTEM_IDS.includes(defaultSystemId)) {
-      setSystemId(defaultSystemId);
-    }
-  }, [defaultSystemId]);
+  const sortedActive = useMemo(() => sortSystems(activeSystems), [activeSystems]);
+  const { loading, error, bundle } = useStateDriverData(modelId, state, sortedActive);
+  const stateOptions = useMemo(() => stateOptionsForModel(modelId), [modelId]);
+  const stateColor = getMarkovStateColor(state);
 
   useEffect(() => {
     if (defaultModelId && MODELS[defaultModelId]) {
@@ -52,149 +36,152 @@ export default function StateDriver({
   }, [defaultModelId]);
 
   useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-
-    Promise.all([
-      loadContactMaps(),
-      loadStateSummaryRows(),
-      loadRmsdByStateRows(),
-      loadRepresentativeFrameRows(),
-    ])
-      .then(([maps, summaries, rmsd, reps]) => {
-        if (cancelled) return;
-        setContactMaps(maps);
-        setStateSummaryRows(summaries);
-        setRmsdRows(rmsd);
-        setRepresentativeRows(reps);
-      })
-      .catch((err) => {
-        if (!cancelled) setError(err.message);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const stateOptions = useMemo(() => stateOptionsForModel(modelId), [modelId]);
-  const stateColor = getMarkovStateColor(state);
-
-  useEffect(() => {
     if (state >= stateOptions.length) {
       setState(0);
     }
   }, [state, stateOptions.length]);
 
-  const matrixBundle = useMemo(() => {
-    if (!contactMaps) {
-      return { matrix: null, topPairs: [], maxAbs: 1, frameCount: 0 };
-    }
-    return buildResidualContactMatrix(
-      contactMaps,
-      systemId,
-      modelId,
-      TRAJECTORY_TYPE,
-      state
-    );
-  }, [contactMaps, systemId, modelId, state]);
-
-  const summary = useMemo(
-    () =>
-      filterStateSummary(
-        stateSummaryRows,
-        systemId,
-        modelId,
-        TRAJECTORY_TYPE,
-        state
-      ),
-    [stateSummaryRows, systemId, modelId, state]
-  );
-
-  const rmsdBins = useMemo(
-    () =>
-      filterRmsdDistribution(
-        rmsdRows,
-        systemId,
-        modelId,
-        TRAJECTORY_TYPE,
-        state
-      ),
-    [rmsdRows, systemId, modelId, state]
-  );
-
-  const representative = useMemo(
-    () =>
-      findRepresentativeFrame(
-        representativeRows,
-        systemId,
-        modelId,
-        TRAJECTORY_TYPE,
-        state
-      ),
-    [representativeRows, systemId, modelId, state]
-  );
-
   const trajectoryNames = useMemo(() => {
-    const match = systems.find((s) => s.systemId === systemId);
-    return new Set((match?.trajectoryRows ?? []).map((row) => row.name));
-  }, [systems, systemId]);
+    const names = new Map();
+    for (const sys of systems) {
+      names.set(sys.systemId, new Set((sys.trajectoryRows ?? []).map((row) => row.name)));
+    }
+    return names;
+  }, [systems]);
 
-  const applyViewerForState = useCallback(() => {
-    if (!representative || !trajectoryNames.has(representative.trajectoryName))
-      return;
+  const applyViewer = useCallback(
+    (systemId, representative) => {
+      if (!representative) return;
+      const allowed = trajectoryNames.get(systemId);
+      if (!allowed?.has(representative.trajectoryName)) return;
+      onViewerTargetChange?.({
+        systemId: representative.systemId,
+        trajectoryName: representative.trajectoryName,
+        frameIndex: representative.frameIndex,
+      });
+    },
+    [trajectoryNames, onViewerTargetChange]
+  );
 
-    onViewerTargetChange?.({
-      systemId: representative.systemId,
-      trajectoryName: representative.trajectoryName,
-      frameIndex: representative.frameIndex,
-    });
-  }, [representative, trajectoryNames, onViewerTargetChange]);
+  const defaultSystemId = sortedActive[0] ?? ALL_SYSTEMS[0];
 
   useEffect(() => {
-    setSelectedPair(null);
+    setSelectedEdge(null);
+    setSelectedContact(null);
     onResidueHighlightChange?.(null);
-    applyViewerForState();
-  }, [systemId, modelId, state, applyViewerForState, onResidueHighlightChange]);
+    applyViewer(defaultSystemId, bundle.representatives[defaultSystemId]);
+  }, [
+    modelId,
+    state,
+    sortedActive,
+    defaultSystemId,
+    bundle.representatives,
+    applyViewer,
+    onResidueHighlightChange,
+  ]);
 
-  const handlePairSelect = useCallback(
-    (pair) => {
-      setSelectedPair(pair);
-      onResidueHighlightChange?.({ i: pair.i, j: pair.j });
-      applyViewerForState();
+  const toggleSystem = useCallback((systemId) => {
+    setActiveSystems((prev) => {
+      const sorted = sortSystems(prev);
+      if (sorted.includes(systemId)) {
+        if (sorted.length === 1) return sorted;
+        return sorted.filter((id) => id !== systemId);
+      }
+      return sortSystems([...sorted, systemId]);
+    });
+  }, []);
+
+  const arcLabels = useMemo(() => {
+    if (sortedActive.length === 1) {
+      return { top: `${systemLabel(sortedActive[0])} interactions`, bottom: '' };
+    }
+    if (sortedActive.length === 2) {
+      return {
+        top: `${systemLabel(sortedActive[0])} stronger`,
+        bottom: `${systemLabel(sortedActive[1])} stronger`,
+      };
+    }
+    return {
+      top: 'Stronger (Free Aβ42 / TMP)',
+      bottom: 'Stronger (SPA)',
+    };
+  }, [sortedActive]);
+
+  const handleEdgeSelect = useCallback(
+    (edge) => {
+      setSelectedEdge(edge);
+      setSelectedContact(null);
+      onResidueHighlightChange?.({ i: edge.source, j: edge.target });
+
+      const viewerSystem =
+        edge.winner !== 'shared' && sortedActive.includes(edge.winner)
+          ? edge.winner
+          : defaultSystemId;
+      applyViewer(viewerSystem, bundle.representatives[viewerSystem]);
     },
-    [applyViewerForState, onResidueHighlightChange]
+    [
+      applyViewer,
+      bundle.representatives,
+      defaultSystemId,
+      onResidueHighlightChange,
+      sortedActive,
+    ]
+  );
+
+  const handleContactSelect = useCallback(
+    (contact) => {
+      setSelectedContact(contact);
+      setSelectedEdge(null);
+      onResidueHighlightChange?.({ i: contact.residue, j: null, ligand: contact.ligand });
+      applyViewer(contact.systemId, bundle.representatives[contact.systemId]);
+    },
+    [applyViewer, bundle.representatives, onResidueHighlightChange]
   );
 
   if (loading) {
-    return <div className="conf-driver-status">Loading conformational driver data…</div>;
+    return <div className="state-driver-status">Loading StateDriver interaction data…</div>;
   }
 
   if (error) {
-    return <div className="conf-driver-error">{error}</div>;
+    return <div className="state-driver-error">{error}</div>;
   }
 
+  const totalFrames = sortedActive.reduce(
+    (sum, id) => sum + (bundle.frameCounts[id] ?? 0),
+    0
+  );
+
   return (
-    <div className="computation-tab computation-tab--conformational-drivers">
-      <div className="conf-driver-toolbar">
-        <h4 className="computation-tab-title">StateDriver</h4>
+    <div className="computation-tab computation-tab--state-driver">
+      <div className="state-driver-toolbar">
+        <div className="state-driver-toolbar-main">
+          <h4 className="computation-tab-title">StateDriver</h4>
+          <p className="state-driver-subtitle">
+            {sortedActive.map(systemLabel).join(' · ')} · heavy-atom soft contacts
+          </p>
+        </div>
         <div className="viewer-3d-controls">
-          <select
-            className="viewer-3d-select"
-            value={systemId}
-            onChange={(e) => setSystemId(e.target.value)}
-            aria-label="System"
-          >
-            {SYSTEM_IDS.map((id) => (
-              <option key={id} value={id}>
-                {SYSTEMS[id].label}
-              </option>
-            ))}
-          </select>
+          <div className="state-driver-system-checks" role="group" aria-label="Systems to display">
+            {ALL_SYSTEMS.map((systemId) => {
+              const checked = sortedActive.includes(systemId);
+              const disabled = checked && sortedActive.length === 1;
+              return (
+                <label key={systemId} className="state-driver-system-check">
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    disabled={disabled}
+                    onChange={() => toggleSystem(systemId)}
+                  />
+                  <span
+                    className="state-driver-system-check-swatch"
+                    data-system={systemId}
+                  />
+                  {systemLabel(systemId)}
+                </label>
+              );
+            })}
+          </div>
 
           <select
             className="viewer-3d-select"
@@ -232,25 +219,61 @@ export default function StateDriver({
         </div>
       </div>
 
-      <div className="conf-driver-matrix-row">
-        <div className="conf-driver-main">
-          <ConformationalDriverMatrix
-            matrix={matrixBundle.matrix}
-            maxAbs={matrixBundle.maxAbs}
-            selectedPair={selectedPair}
-            onCellSelect={handlePairSelect}
-          />
-        </div>
+      {totalFrames === 0 ? (
+        <p className="state-driver-muted">
+          No interaction data for this model/state in the selected system(s).
+        </p>
+      ) : (
+        <>
+          <div className="state-driver-viz">
+            <DifferentialArcInteractionDiagram
+              edges={bundle.residueResidueEdges}
+              nodeProximity={bundle.nodeProximity}
+              activeSystems={bundle.activeSystems}
+              selectedEdgeKey={selectedEdge?.pairKey ?? null}
+              topLabel={arcLabels.top}
+              bottomLabel={arcLabels.bottom}
+              onEdgeSelect={handleEdgeSelect}
+            />
+            <LigandContactRows
+              ligandRows={bundle.ligandRows}
+              selectedContact={selectedContact}
+              onContactSelect={handleContactSelect}
+            />
+          </div>
 
-        <TopResidualPairs pairs={matrixBundle.topPairs} onPairClick={handlePairSelect} />
-      </div>
+          <InteractionLegend activeSystems={bundle.activeSystems} />
 
-      <RMSDStateSummary
-        summary={summary}
-        rmsdBins={rmsdBins}
-        frameCount={matrixBundle.frameCount}
-      />
+          <div className="state-driver-meta">
+            {sortedActive.map((systemId) => (
+              <span key={systemId}>
+                {systemLabel(systemId)} frames:{' '}
+                {(bundle.frameCounts[systemId] ?? 0).toLocaleString()}
+              </span>
+            ))}
+            <span>Arcs shown: {bundle.residueResidueEdges.length}</span>
+            {selectedEdge ? (
+              <span>
+                Selected R{selectedEdge.source}–R{selectedEdge.target}
+                {bundle.compareMode
+                  ? sortedActive
+                      .map(
+                        (id) =>
+                          ` ${systemLabel(id)} ${(selectedEdge.strengths[id] ?? 0).toFixed(2)}`
+                      )
+                      .join(',')
+                  : `: ${selectedEdge.displayStrength.toFixed(2)}`}
+              </span>
+            ) : null}
+            {selectedContact ? (
+              <span>
+                Selected R{selectedContact.residue} · {selectedContact.ligand}: strength{' '}
+                {selectedContact.strength.toFixed(2)}
+              </span>
+            ) : null}
+          </div>
+        </>
+      )}
     </div>
   );
 }
-

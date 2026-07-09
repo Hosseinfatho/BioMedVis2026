@@ -33,6 +33,7 @@ npm run preprocess:trajectory-features    # Step 2
 npm run preprocess:frame-structural       # Step 3 (slow, hours)
 npm run preprocess:structural-index       # Step 3b (build SQLite cache, optional)
 npm run preprocess:state-trajectory-frame-counts
+npm run preprocess:state-driver-interactions   # StateDriver TMP vs SPA heavy-atom interactions
 npm run preprocess:signature-residuals   # Cα–Cα distance histograms per state / pair / frame
 
 npm run preprocess:state-summaries          # Step 4
@@ -52,6 +53,13 @@ Step 5 options:
 REPRESENTATIVE_TOP_K=10 npm run preprocess:representative-frames
 ```
 
+Step — state trajectory frame counts (StateSignature **Frames** tab):
+
+```bash
+npm run preprocess:state-trajectory-frame-counts
+# optional: THRESHOLD_PERCENTILE=10  (default 10 = closest 10% green)
+```
+
 ---
 
 ## Steps summary
@@ -63,7 +71,9 @@ REPRESENTATIVE_TOP_K=10 npm run preprocess:representative-frames
 | **3** | `preprocess:frame-structural` | `filtered.pdb`, `output.filtered.xtc` | `frame_structural_features.csv` | T3 RMSD, contacts, ligand |
 | **4** | `preprocess:state-summaries` | `frame_index.csv` + `frame_structural_features.csv` | `state_summary.csv`, `rmsd_by_state.csv`, `state_contact_maps.json`, `ligand_contacts.csv`, `structural_index.db` | T3 state explanation |
 | **5** | `preprocess:representative-frames` | `frame_index.csv` + `frame_structural_features.csv` (+ db cache) | `representative_frames.csv` | T3 representative 3D frames |
+| **5b** | `preprocess:state-trajectory-frame-counts` | `frame_index.csv` + `structural_index.db` | `state_trajectory_frame_counts.json` | StateSignature **Frames** tab |
 | **6** | `preprocess:signature-residuals` | `frame_index.csv` + raw trajectories | `state_signature_residuals.json` | StateSignature distance histograms |
+| **7** | `preprocess:state-driver-interactions` | `frame_index.csv` + trajectories (zsab3, zsab4) | `state_driver_interactions.json` | StateDriver arc diagram |
 
 ---
 
@@ -104,10 +114,24 @@ Top frames closest to structural center of each state (default: 5 per state).
 **Input:** `frame_index.csv` + `frame_structural_features.csv`  
 **Output columns:** `system`, `model`, `trajectory_type`, `state`, `trajectory_name`, `local_frame`, `xtc_frame_index`, `representative_rank`, `representative_score`
 
+### Step 5b — `state_trajectory_frame_counts.json`
+Per-state, per-trajectory frame counts for the StateSignature **Frames** tab (stacked blue/green bars).
+
+**Input:** `frame_index.csv`, `structural_index.db`, `representative_frames.csv` (reference for Viewer3D only)
+
+**Method:**
+1. Build state **centroid** = mean structural feature vector over all frames in the state  
+   `[rmsd, radius_of_gyration, d_1_42, d_1_28, d_17_42, d_11_42, d_18_42]`
+2. Per frame: Euclidean distance to centroid
+3. **Threshold = P10** (default) — closest **10%** of state frames are green (`within_threshold`)
+4. Override: `THRESHOLD_PERCENTILE=10 npm run preprocess:state-trajectory-frame-counts`
+
+**Output keys:** `system|model|original|state` → `{ reference, rmsd_threshold, threshold_percentile, trajectories }`
+
 ### Step 6 — `state_signature_residuals.json`
 Per-state Cα–Cα distance histograms plus **μ and σ per pair** for adaptive stability scoring.
 
-**Score (UI):** count frames with `|distance − μ| / μ ≤ displacement%` (default **1%**).
+**Score (UI):** count frames with `|distance − μ| / μ ≤ stability_tolerance%` (default **1%**).
 
 ```bash
 npm run preprocess:signature-residuals
@@ -116,6 +140,21 @@ npm run preprocess:signature-residuals
 **Output format (`distance_histogram_v2`):**
 - `_meta.bin_width`, `_meta.max_distance`
 - Per group: `pair_hist`, `pair_stats` (`mean`, `std`, `n`)
+
+### Step 7 — `state_driver_interactions.json`
+Heavy-atom min-distance interaction stats for **StateDriver** (zsab2, zsab3, zsab4).
+
+```bash
+npm run preprocess:state-driver-interactions
+```
+
+**Method:**
+- Residue pairs with `|i − j| ≥ 3`
+- Min heavy-atom distance per frame
+- Soft score: `1 / (1 + exp(β(d − λ·d0)))` with `d0` = pair median in state
+- Ligand min-distance per residue (TMP/SPA)
+
+**Output:** `pairs`, `ligand` per `system|model|original|state`
 
 ---
 
@@ -128,7 +167,9 @@ src/preprocess/
   runFrameStructuralFeatures.js → Step 3
   runStateSummaries.js          → Step 4
   runRepresentativeFrames.js    → Step 5
+  runStateTrajectoryFrameCounts.js → Step 5b
   runSignatureResiduals.js      → Step 6
+  runStateDriverInteractions.js → Step 7
 
 public/data/Residual/
   frame_index.csv
@@ -139,7 +180,9 @@ public/data/Residual/
   state_contact_maps.json
   ligand_contacts.csv
   representative_frames.csv
+  state_trajectory_frame_counts.json
   state_signature_residuals.json
+  state_driver_interactions.json
 public/data/Residual/
   frame_index.csv
   trajectory_features.csv
@@ -149,7 +192,9 @@ public/data/Residual/
   state_contact_maps.json
   ligand_contacts.csv
   representative_frames.csv
+  state_trajectory_frame_counts.json
   state_signature_residuals.json
+  state_driver_interactions.json
 ```
 
 Each output has a matching `.md` file in the same folder with more detail.

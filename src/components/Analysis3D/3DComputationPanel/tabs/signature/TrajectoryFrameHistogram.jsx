@@ -138,11 +138,11 @@ export default function TrajectoryFrameHistogram({
   };
 
   const tip = hover
-    ? `Trajectory ${hover.trajectoryIndex}: ${hover.stateFrameCount} in state (${hover.withinThresholdCount} near reference, ${hover.belowThresholdCount} farther)`
+    ? `Trajectory ${hover.trajectoryIndex}: ${hover.stateFrameCount} in state (${hover.withinThresholdCount} near centroid, ${hover.belowThresholdCount} farther)`
     : selectedBar
       ? `Trajectory ${selectedBar.trajectoryIndex}: ${selectedBar.stateFrameCount} frames in state`
       : histogram?.hasThresholdData
-        ? 'Stacked bar: blue = in state but farther from reference; green = within RMSD threshold. Click a bar for Viewer3D.'
+        ? 'Stacked bar: blue = in state but farther from centroid; green = closest 10% by structural distance. Click a bar for Viewer3D.'
         : 'Run preprocess:state-trajectory-frame-counts for green threshold stacks.';
 
   if (!histogram?.bars?.length) {
