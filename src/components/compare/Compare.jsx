@@ -14,10 +14,9 @@ import {
   ALIGNMENT_NONE,
   buildAlignmentOptions,
 } from '../../utils/alignment';
-import {
-  motifBundlesForSystem,
-} from '../../utils/motifs';
+import { motifBundlesForSystem } from '../../utils/motifs';
 import { slotKey } from '../../utils/slotKey';
+import { buildMatrixSlotsFromRows, unionSystemIds } from '../../utils/matrixSlots';
 import { trajectoriesByMatrixSlot } from '../../utils/matrixRepresentativeRows';
 import InteractiveMatrix from './InteractiveMatrix';
 import MotifPanel from './MotifPanel';
@@ -25,6 +24,10 @@ import Trace from '../Trace';
 import Analysis3D from '../Analysis3D/Analysis3D';
 
 const SYSTEM_IDS = Object.keys(SYSTEMS);
+
+function sortSystemIds(systemIds) {
+  return [...systemIds].sort((a, b) => SYSTEM_IDS.indexOf(a) - SYSTEM_IDS.indexOf(b));
+}
 
 function featuresBySlot(rows, numStates, alignmentId) {
   const map = new Map();
@@ -47,16 +50,6 @@ function featuresBySlot(rows, numStates, alignmentId) {
   return out;
 }
 
-function transitionKeys(numStates) {
-  const keys = [];
-  for (let a = 0; a < numStates; a++) {
-    for (let b = 0; b < numStates; b++) {
-      if (a !== b) keys.push(`${a}->${b}`);
-    }
-  }
-  return keys;
-}
-
 const EMPTY = {
   stateRatios: [],
   transitionRatios: {},
@@ -66,11 +59,25 @@ const EMPTY = {
   totalTransitions: 0,
 };
 
+function columnFromFeatures(features) {
+  return {
+    stateVals: features.stateRatios,
+    transitionVals: features.transitionRatios,
+    stateCounts: features.stateCounts,
+    transitionCounts: features.transitionCounts,
+    totalFrames: features.total,
+    totalTransitions: features.totalTransitions,
+    states: features.states,
+  };
+}
+
 export default function Compare({
   selectedModel,
   numStates,
   defaultA,
   defaultB,
+  comparisonSystemIds = [],
+  sharedMatrixSlots = [],
   selection,
   onSelectionChange,
   hoverIndex,
@@ -81,13 +88,16 @@ export default function Compare({
   hoveredMotif,
   onMotifHoverChange,
 }) {
-  const [systemA, setSystemA] = useState(defaultA || SYSTEM_IDS[0]);
-  const [systemB, setSystemB] = useState(defaultB || SYSTEM_IDS[1] || SYSTEM_IDS[0]);
-  // the difference view only appears after the user presses "Compare"
-  const [applied, setApplied] = useState(false);
+  const initialDraft = useMemo(() => {
+    const ids = new Set(SYSTEM_IDS);
+    if (defaultA) ids.add(defaultA);
+    if (defaultB) ids.add(defaultB);
+    return sortSystemIds([...ids]);
+  }, [defaultA, defaultB]);
+
+  const [draftSystems, setDraftSystems] = useState(initialDraft);
+  const [appliedSystems, setAppliedSystems] = useState([]);
   const [systemsData, setSystemsData] = useState({});
-  const [dataA, setDataA] = useState(null);
-  const [dataB, setDataB] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [alignmentId, setAlignmentId] = useState(ALIGNMENT_NONE);
@@ -109,11 +119,15 @@ export default function Compare({
     onActiveMotifChange?.(null);
   }, [numStates, onActiveMotifChange]);
 
-  // Matrices always use original per-trajectory data; chart view mode does not
-  // affect columns, brush, or Rate aggregation.
+  useEffect(() => {
+    if (!comparisonSystemIds.length) return;
+    setDraftSystems(sortSystemIds(comparisonSystemIds));
+    setAppliedSystems([]);
+  }, [comparisonSystemIds]);
+
   useEffect(() => {
     let cancelled = false;
-    setApplied(false);
+    setAppliedSystems([]);
     setLoading(true);
     setError(null);
 
@@ -140,134 +154,107 @@ export default function Compare({
     };
   }, [selectedModel]);
 
-  useEffect(() => {
-    if (!Object.keys(systemsData).length) {
-      setDataA(null);
-      setDataB(null);
-      return;
-    }
-    setDataA(systemsData[systemA] ?? null);
-    setDataB(systemsData[systemB] ?? null);
-  }, [systemA, systemB, systemsData]);
+  const slotSourceSystems = useMemo(() => {
+    if (appliedSystems.length >= 2) return sortSystemIds(appliedSystems);
+    return sortSystemIds(draftSystems);
+  }, [appliedSystems, draftSystems]);
 
-  // A single shared column order (System A's natural order, then any B-only
-  // slots) so System A, System B and the difference line up home-by-home.
-  const { columnsA, columnsB, columnsDiff, colCount, matrixSlots } = useMemo(() => {
-    if (!dataA) {
-      return {
-        columnsA: [],
-        columnsB: [],
-        columnsDiff: [],
-        colCount: 0,
-        matrixSlots: [],
-      };
+  const motifSlotSystems = useMemo(() => {
+    const loaded = Object.keys(systemsData).filter((id) => systemsData[id]?.length);
+    return sortSystemIds(
+      unionSystemIds(comparisonSystemIds, slotSourceSystems, loaded, SYSTEM_IDS)
+    );
+  }, [comparisonSystemIds, slotSourceSystems, systemsData]);
+
+  const visibleSystems = useMemo(() => {
+    if (appliedSystems.length >= 2) return sortSystemIds(appliedSystems);
+    const draft = sortSystemIds(draftSystems);
+    return draft.length ? [draft[0]] : [];
+  }, [appliedSystems, draftSystems]);
+
+
+  const { columnsBySystem, colCount, matrixSlots: computedMatrixSlots } = useMemo(() => {
+    if (!visibleSystems.length) {
+      return { columnsBySystem: {}, colCount: 0, matrixSlots: [] };
     }
 
-    const mapA = featuresBySlot(dataA, numStates, alignmentId);
-    const mapB = dataB ? featuresBySlot(dataB, numStates, alignmentId) : new Map();
-    const tKeys = transitionKeys(numStates);
-
-    const slots = [];
-    const seen = new Set();
-    for (const row of dataA) {
-      const s = slotKey(row.name);
-      if (!seen.has(s)) {
-        seen.add(s);
-        slots.push(s);
-      }
-    }
-    if (dataB) {
-      for (const row of dataB) {
-        const s = slotKey(row.name);
-        if (s && !seen.has(s)) {
-          seen.add(s);
-          slots.push(s);
-        }
+    const featureMaps = {};
+    for (const systemId of visibleSystems) {
+      const rows = systemsData[systemId];
+      if (rows?.length) {
+        featureMaps[systemId] = featuresBySlot(rows, numStates, alignmentId);
       }
     }
 
-    const cA = [];
-    const cB = [];
-    const cD = [];
-    for (const slot of slots) {
-      const a = mapA.get(slot) || EMPTY;
-      const b = mapB.get(slot) || EMPTY;
+    const primaryId = visibleSystems[0];
+    if (!featureMaps[primaryId]) {
+      return { columnsBySystem: {}, colCount: 0, matrixSlots: [] };
+    }
 
-      cA.push({
-        stateVals: a.stateRatios,
-        transitionVals: a.transitionRatios,
-        stateCounts: a.stateCounts,
-        transitionCounts: a.transitionCounts,
-        totalFrames: a.total,
-        totalTransitions: a.totalTransitions,
-        states: a.states,
-      });
-      cB.push({
-        stateVals: b.stateRatios,
-        transitionVals: b.transitionRatios,
-        stateCounts: b.stateCounts,
-        transitionCounts: b.transitionCounts,
-        totalFrames: b.total,
-        totalTransitions: b.totalTransitions,
-        states: b.states,
-      });
+    const slots = buildMatrixSlotsFromRows(
+      motifSlotSystems.map((systemId) => systemsData[systemId]).filter(Boolean)
+    );
 
-      const stateDiff = [];
-      for (let s = 0; s < numStates; s++) {
-        stateDiff.push(
-          Math.abs((a.stateRatios[s] || 0) - (b.stateRatios[s] || 0))
-        );
-      }
-      const transitionDiff = {};
-      for (const key of tKeys) {
-        transitionDiff[key] = Math.abs(
-          (a.transitionRatios[key] || 0) - (b.transitionRatios[key] || 0)
-        );
-      }
-      cD.push({
-        stateVals: stateDiff,
-        transitionVals: transitionDiff,
-        states: a.states,
-        statesB: b.states,
+    const columnsBySystem = {};
+    for (const systemId of visibleSystems) {
+      const map = featureMaps[systemId] || new Map();
+      columnsBySystem[systemId] = slots.map((slot) => {
+        const features = map.get(slot) || EMPTY;
+        return columnFromFeatures(features);
       });
     }
 
     return {
-      columnsA: cA,
-      columnsB: cB,
-      columnsDiff: cD,
+      columnsBySystem,
       colCount: slots.length,
       matrixSlots: slots,
     };
-  }, [dataA, dataB, numStates, alignmentId]);
+  }, [visibleSystems, motifSlotSystems, systemsData, numStates, alignmentId]);
 
-  const motifGetStates = useCallback((row) => row.states || [], []);
+  const matrixSlots =
+    computedMatrixSlots.length > 0 ? computedMatrixSlots : sharedMatrixSlots;
 
-  const motifBundlesA = useMemo(
-    () => motifBundlesForSystem(activeMotif, numStates, dataA, matrixSlots, motifGetStates),
-    [activeMotif, numStates, dataA, matrixSlots, motifGetStates]
+  const motifGetStates = useCallback(
+    (row) => getMatrixStates(row, 'original', alignmentId),
+    [alignmentId]
   );
 
-  const motifBundlesB = useMemo(
+  const motifBundlesBySystem = useMemo(() => {
+    const out = {};
+    for (const systemId of motifSlotSystems) {
+      const rows = systemsData[systemId];
+      if (!rows?.length) continue;
+      out[systemId] = motifBundlesForSystem(
+        activeMotif,
+        numStates,
+        rows,
+        matrixSlots,
+        motifGetStates
+      );
+    }
+    return out;
+  }, [
+    activeMotif,
+    numStates,
+    motifSlotSystems,
+    systemsData,
+    matrixSlots,
+    motifGetStates,
+  ]);
+
+  const traceSystems = useMemo(
     () =>
-      dataB
-        ? motifBundlesForSystem(activeMotif, numStates, dataB, matrixSlots, motifGetStates)
-        : [],
-    [activeMotif, numStates, dataB, matrixSlots, motifGetStates]
+      visibleSystems
+        .filter((id) => systemsData[id]?.length)
+        .map((id) => ({
+          systemId: id,
+          label: SYSTEMS[id]?.label ?? id,
+          rows: systemsData[id],
+        })),
+    [visibleSystems, systemsData]
   );
 
-  const motifBundlesDiff = useMemo(() => {
-    if (!activeMotif) return [];
-    let nextIdx = 0;
-    const merged = [];
-    for (const bundle of motifBundlesA) {
-      merged.push({ ...bundle, occurrenceIndex: nextIdx++ });
-    }
-    for (const bundle of motifBundlesB) {
-      merged.push({ ...bundle, occurrenceIndex: nextIdx++ });
-    }
-    return merged;
-  }, [activeMotif, motifBundlesA, motifBundlesB]);
+  const primarySystemId = visibleSystems[0] ?? SYSTEM_IDS[0];
 
   const activateResidueViewer = useCallback(
     (systemId, rows) => (colIndex) => {
@@ -285,10 +272,11 @@ export default function Compare({
   );
 
   useEffect(() => {
-    onSlotsChange?.(matrixSlots);
+    if (matrixSlots.length > 0) {
+      onSlotsChange?.(matrixSlots);
+    }
   }, [matrixSlots, onSlotsChange]);
 
-  // reset the shared window to cover all trajectories whenever the data changes
   useEffect(() => {
     if (colCount > 0) {
       onSelectionChange?.({ start: 0, end: colCount - 1 });
@@ -322,40 +310,61 @@ export default function Compare({
     [colCount, onSelectionChange]
   );
 
-  const sameSystem = systemA === systemB;
-  const showResult = applied && !loading && !error && !sameSystem && !!dataB;
+  const toggleDraftSystem = useCallback((systemId) => {
+    setDraftSystems((prev) => {
+      const sorted = sortSystemIds(prev);
+      if (sorted.includes(systemId)) {
+        if (sorted.length === 1) return sorted;
+        return sorted.filter((id) => id !== systemId);
+      }
+      return sortSystemIds([...sorted, systemId]);
+    });
+    setAppliedSystems([]);
+  }, []);
+
+  const handleCompare = useCallback(() => {
+    setAppliedSystems(sortSystemIds(draftSystems));
+  }, [draftSystems]);
+
+  const canCompare = draftSystems.length >= 2 && !loading && !error;
+  const hasPrimaryData = Boolean(systemsData[primarySystemId]?.length);
 
   return (
     <>
       <div className="compare">
         <div className="compare-toolbar">
           <div className="compare-toolbar-section compare-toolbar-section--systems">
-            <label className="compare-select">
-              <span className="panel-field-label">System A</span>
-              <select value={systemA} onChange={(e) => setSystemA(e.target.value)}>
-                {SYSTEM_IDS.map((id) => (
-                  <option key={id} value={id}>
-                    {SYSTEMS[id].label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <span className="compare-vs">vs</span>
-            <label className="compare-select">
-              <span className="panel-field-label">System B</span>
-              <select value={systemB} onChange={(e) => setSystemB(e.target.value)}>
-                {SYSTEM_IDS.map((id) => (
-                  <option key={id} value={id}>
-                    {SYSTEMS[id].label}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <span className="panel-field-label compare-systems-label">Systems</span>
+            <div
+              className="state-driver-system-checks compare-system-checks"
+              role="group"
+              aria-label="Systems to compare"
+            >
+              {SYSTEM_IDS.map((systemId) => {
+                const checked = draftSystems.includes(systemId);
+                const disabled = checked && draftSystems.length === 1;
+                return (
+                  <label key={systemId} className="state-driver-system-check">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      disabled={disabled}
+                      onChange={() => toggleDraftSystem(systemId)}
+                    />
+                    <span
+                      className="state-driver-system-check-swatch"
+                      data-system={systemId}
+                    />
+                    {SYSTEMS[systemId].label}
+                  </label>
+                );
+              })}
+            </div>
             <button
               type="button"
               className="generate-btn compare-toolbar-btn"
-              onClick={() => setApplied(true)}
-              disabled={loading || sameSystem}
+              onClick={handleCompare}
+              disabled={!canCompare}
             >
               {loading ? 'Loading…' : 'Compare'}
             </button>
@@ -386,7 +395,7 @@ export default function Compare({
           </span>
 
           <div className="compare-toolbar-section compare-toolbar-section--motif">
-            {!loading && !error && dataA ? (
+            {!loading && !error && hasPrimaryData ? (
               <MotifPanel
                 numStates={numStates}
                 onActiveMotifChange={onActiveMotifChange}
@@ -398,104 +407,55 @@ export default function Compare({
         {error && <div className="error-banner compare-banner">{error}</div>}
         {loading && <div className="empty-state compare-banner">Loading…</div>}
 
-        {!loading && !error && dataA && (
+        {!loading && !error && hasPrimaryData && (
           <div className="compare-body">
             <div className="compare-matrix-stack">
-          {colCount > 0 && (
-            <Trace
-              dataA={dataA}
-              dataB={showResult ? dataB : null}
-              systemALabel={SYSTEMS[systemA]?.label || systemA}
-              systemBLabel={SYSTEMS[systemB]?.label || systemB}
-              canCompare={showResult}
-              numStates={numStates}
-              matrixSlots={matrixSlots}
-              alignmentId={alignmentId}
-              viewStart={matrixView.viewStart}
-              viewCount={matrixView.viewCount || colCount}
-              numCols={colCount}
-              selection={selection}
-              hoverIndex={hoverIndex}
-              onHoverChange={onHoverChange}
-              onViewChange={handleMatrixViewChange}
-            />
-          )}
+              {colCount > 0 && (
+                <Trace
+                  traceSystems={traceSystems}
+                  numStates={numStates}
+                  matrixSlots={matrixSlots}
+                  alignmentId={alignmentId}
+                  viewStart={matrixView.viewStart}
+                  viewCount={matrixView.viewCount || colCount}
+                  numCols={colCount}
+                  selection={selection}
+                  hoverIndex={hoverIndex}
+                  onHoverChange={onHoverChange}
+                  onViewChange={handleMatrixViewChange}
+                />
+              )}
 
-          <InteractiveMatrix
-            key={`matrix-${systemA}`}
-            columns={columnsA}
-            numStates={numStates}
-            alignmentId={alignmentId}
-            activeMotif={activeMotif}
-            motifSystemId={systemA}
-            hoveredMotif={hoveredMotif}
-            onMotifHoverChange={onMotifHoverChange}
-            selection={selection}
-            onSelectionChange={onSelectionChange}
-            hoverIndex={hoverIndex}
-            onHoverChange={onHoverChange}
-            trajectoryRows={dataA}
-            matrixSlots={matrixSlots}
-            motifBundles={motifBundlesA}
-            viewStart={matrixView.viewStart}
-            viewCount={matrixView.viewCount || colCount}
-            onViewChange={handleMatrixViewChange}
-            onColumnActivate={activateResidueViewer(systemA, dataA)}
-            showColumnLabels
-            sideLabel={SYSTEMS[systemA].label}
-          />
-
-          {showResult && (
-            <>
-              <InteractiveMatrix
-                key={`matrix-${systemB}`}
-                columns={columnsB}
-                numStates={numStates}
-                alignmentId={alignmentId}
-                activeMotif={activeMotif}
-                motifSystemId={systemB}
-                hoveredMotif={hoveredMotif}
-                onMotifHoverChange={onMotifHoverChange}
-                selection={selection}
-                onSelectionChange={onSelectionChange}
-                hoverIndex={hoverIndex}
-                onHoverChange={onHoverChange}
-                trajectoryRows={dataB}
-                matrixSlots={matrixSlots}
-                motifBundles={motifBundlesB}
-                viewStart={matrixView.viewStart}
-                viewCount={matrixView.viewCount || colCount}
-                onViewChange={handleMatrixViewChange}
-                onColumnActivate={activateResidueViewer(systemB, dataB)}
-                sideLabel={SYSTEMS[systemB].label}
-              />
-
-              <InteractiveMatrix
-                key="matrix-diff"
-                columns={columnsDiff}
-                numStates={numStates}
-                alignmentId={alignmentId}
-                activeMotif={activeMotif}
-                motifSystemId="__diff__"
-                hoveredMotif={hoveredMotif}
-                onMotifHoverChange={onMotifHoverChange}
-                selection={selection}
-                onSelectionChange={onSelectionChange}
-                hoverIndex={hoverIndex}
-                onHoverChange={onHoverChange}
-                trajectoryRows={dataA}
-                trajectoryRowsB={dataB}
-                matrixSlots={matrixSlots}
-                motifBundles={motifBundlesDiff}
-                viewStart={matrixView.viewStart}
-                viewCount={matrixView.viewCount || colCount}
-                onViewChange={handleMatrixViewChange}
-                onColumnActivate={activateResidueViewer(systemA, dataA)}
-                rateMode="diff"
-                sideLabel="Difference"
-              />
-            </>
-          )}
+              {visibleSystems.map((systemId, index) => {
+                const rows = systemsData[systemId];
+                const columns = columnsBySystem[systemId];
+                if (!columns?.length || !rows) return null;
+                return (
+                  <InteractiveMatrix
+                    key={`matrix-${systemId}`}
+                    columns={columns}
+                    numStates={numStates}
+                    alignmentId={alignmentId}
+                    activeMotif={activeMotif}
+                    motifSystemId={systemId}
+                    hoveredMotif={hoveredMotif}
+                    onMotifHoverChange={onMotifHoverChange}
+                    selection={selection}
+                    onSelectionChange={onSelectionChange}
+                    hoverIndex={hoverIndex}
+                    onHoverChange={onHoverChange}
+                    trajectoryRows={rows}
+                    matrixSlots={matrixSlots}
+                    motifBundles={motifBundlesBySystem[systemId] ?? []}
+                    viewStart={matrixView.viewStart}
+                    viewCount={matrixView.viewCount || colCount}
+                    onViewChange={handleMatrixViewChange}
+                    onColumnActivate={activateResidueViewer(systemId, rows)}
+                    showColumnLabels={index === 0}
+                    sideLabel={SYSTEMS[systemId].label}
+                  />
+                );
+              })}
             </div>
           </div>
         )}
@@ -504,7 +464,7 @@ export default function Compare({
       {!loading && !error && Object.keys(systemsData).length > 0 && (
         <Analysis3D
           systemsData={systemsData}
-          defaultSystemId={systemA}
+          defaultSystemId={primarySystemId}
           defaultModelId={selectedModel}
           viewerTarget={residueViewerTarget}
         />

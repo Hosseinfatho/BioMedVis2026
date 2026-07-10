@@ -1,3 +1,5 @@
+> **Master doc:** [`../explain.md`](../explain.md) §3.2 (expert questions) · §5.2 (feature mapping)
+
 Top questions experts ask about residues (and why)
 1. Which residues form contacts over time?
 Question: Do residues i and j come within ~4–6 Å of each other?
