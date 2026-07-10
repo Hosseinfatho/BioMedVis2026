@@ -2,7 +2,7 @@ import { AB42_RESIDUE_COUNT } from '../components/Analysis3D/Viewer3D/residueSpe
 import { MODELS } from '../config/dataFiles';
 import { parseCsv } from './parseCsv';
 
-export const RESIDUAL_DATA_BASE = '/data/Residual/';
+export const RESIDUAL_DATA_BASE = `${import.meta.env.BASE_URL}data/Residual/`;
 
 export function contactMapKey(system, model, trajectoryType, state) {
   return `${system}|${model}|${trajectoryType}|${state}`;

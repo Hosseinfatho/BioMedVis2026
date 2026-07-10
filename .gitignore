@@ -23,12 +23,63 @@ dist-ssr
 *.sln
 *.sw?
 
-# Large trajectory / state data (not tracked in git)
-public/data/
-trajectories/
-data/
+# Raw MD trajectories at repo root (local only — not for GitHub Pages)
+/trajectories/
+/covampnet_data/
+covampnet_data.tar.gz
+
+# Optional root data folder (not public/data)
+/data/
 
 # nested clone (separate repo)
 BioMedVis2026/
-covampnet_data.tar.gz
-/covampnet_data
+
+# --- GitHub Pages: curated public/data only (~50 MB) ---
+
+# Block everything under public/data, then allow UI subsets
+public/data/**
+!public/data/zsab2/
+!public/data/zsab3/
+!public/data/zsab4/
+!public/data/Residual/
+
+# Challenge text files (6 per system)
+public/data/zsab2/*
+!public/data/zsab2/*.txt
+public/data/zsab3/*
+!public/data/zsab3/*.txt
+public/data/zsab4/*
+!public/data/zsab4/*.txt
+
+# Preprocess outputs used by the dashboard (~41 MB)
+public/data/Residual/*
+!public/data/Residual/state_signature_residuals.json
+!public/data/Residual/state_driver_interactions.json
+!public/data/Residual/state_trajectory_frame_counts.json
+!public/data/Residual/representative_frames.csv
+!public/data/Residual/state_summary.csv
+!public/data/Residual/rmsd_by_state.csv
+!public/data/Residual/ligand_contacts.csv
+!public/data/Residual/state_contact_maps.json
+
+# Large preprocess artifacts (never push)
+public/data/Residual/structural_index.db
+public/data/Residual/frame_index.csv
+public/data/Residual/frame_structural_features.csv
+public/data/Residual/trajectory_features.csv
+public/data/Residual/_test_structural.csv
+
+# XTC trajectories under public/data (multi-GB)
+public/data/trajectories/
+
+# Viewer3D topology only (~0.4 MB total) — served at /trajectories/…
+public/trajectories/**
+!public/trajectories/ZS-ab2/
+!public/trajectories/ZS-ab3/
+!public/trajectories/ZS-ab4/
+public/trajectories/ZS-ab2/*
+!public/trajectories/ZS-ab2/filtered.pdb
+public/trajectories/ZS-ab3/*
+!public/trajectories/ZS-ab3/filtered.pdb
+public/trajectories/ZS-ab4/*
+!public/trajectories/ZS-ab4/filtered.pdb
