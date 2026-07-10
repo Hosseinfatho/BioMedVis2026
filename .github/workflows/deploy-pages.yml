@@ -32,17 +32,17 @@ jobs:
         run: npm run prepare:pages-data
 
       - name: Build for GitHub Pages
-        run: npm run build
+        run: npm run build:pages
         env:
           VITE_BASE_PATH: /BioMedVis2026/
 
       - name: SPA fallback for GitHub Pages
-        run: cp dist/index.html dist/404.html
+        run: cp dist-pages/index.html dist-pages/404.html
 
       - name: Deploy to gh-pages branch
         uses: JamesIves/github-pages-deploy-action@v4
         with:
-          folder: dist
+          folder: dist-pages
           branch: gh-pages
           clean: true
           single-commit: true

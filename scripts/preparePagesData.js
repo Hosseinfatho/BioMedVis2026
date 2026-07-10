@@ -17,6 +17,7 @@ const SYSTEMS = [
 ];
 
 const SOURCE_ROOTS = [
+  path.join(root, 'public', 'trajectories'),
   path.join(root, 'public', 'data', 'trajectories'),
   path.join(root, 'trajectories'),
   path.join(root, 'covampnet_data', 'CoVAMPnet_data', 'trajectories'),
@@ -30,24 +31,32 @@ function findPdb(folder) {
   return null;
 }
 
-let copied = 0;
+let ready = 0;
 for (const { folder } of SYSTEMS) {
+  const destDir = path.join(root, 'public', 'trajectories', folder);
+  const dest = path.join(destDir, 'filtered.pdb');
+
+  if (fs.existsSync(dest)) {
+    console.log(`Already present: ${dest}`);
+    ready += 1;
+    continue;
+  }
+
   const src = findPdb(folder);
   if (!src) {
     console.warn(`Warning: filtered.pdb not found for ${folder}`);
     continue;
   }
-  const destDir = path.join(root, 'public', 'trajectories', folder);
-  const dest = path.join(destDir, 'filtered.pdb');
+
   fs.mkdirSync(destDir, { recursive: true });
   fs.copyFileSync(src, dest);
   console.log(`Copied ${src} → ${dest}`);
-  copied += 1;
+  ready += 1;
 }
 
-if (copied === 0) {
-  console.error('No PDB files copied. Place filtered.pdb under trajectories/ or public/data/trajectories/.');
+if (ready === 0) {
+  console.error('No PDB files available. Place filtered.pdb under public/trajectories/ or trajectories/.');
   process.exit(1);
 }
 
-console.log(`Done (${copied} PDB file(s)).`);
+console.log(`Done (${ready} PDB file(s) ready).`);

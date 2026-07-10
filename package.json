@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "build:pages": "vite build",
+    "build:pages": "node scripts/buildForPages.js",
     "prepare:pages-data": "node scripts/preparePagesData.js",
     "preview": "vite preview",
     "preprocess:frame-index": "node src/preprocess/runFrameIndex.js",

@@ -15,7 +15,8 @@
 |---|---|
 | Repo is **private** | GitHub Free only publishes **public** repos. Make the repo public, or use GitHub Pro. |
 | Pages source not set | Use branch **`gh-pages`**, not `gitpage` or `main`. |
-| Workflow failed | **Actions** tab → open **Deploy GitHub Pages** → read error log. |
+| Workflow failed on **Prepare static topology** | Fixed: PDB files already in `public/trajectories/` are accepted (no copy required). |
+| **`gh-pages` branch missing** | Open **Actions** → re-run workflow after push, or deploy locally with `npm run build:pages` then `npx gh-pages -d dist-pages`. |
 | First deploy pending | Push to `gitpage` or run workflow manually (**Actions → Run workflow**). |
 
 ## How deploy works
