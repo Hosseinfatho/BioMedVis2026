@@ -28,6 +28,25 @@ The workflow also works with branch deploy if you switch the last step back to J
 | Workflow failed / never ran | **Actions** tab → **Deploy GitHub Pages** → read error log → **Re-run workflow**. |
 | First deploy pending | Push to `gitpage` or run workflow manually. |
 
+## 3D trajectory playback (Viewer3D)
+
+GitHub Pages is **static**, so the `/api/trajectory-frame` endpoint (Python + XTC)
+is not available. By default Viewer3D shows the static PDB structure only.
+
+Full per-frame playback would require the multi-GB XTC trajectories (~28 GB) or a
+live backend, so it is **not** bundled into the static site. Two ways to enable it:
+
+- **Run locally:** `npm run dev` serves the frame API from `vite.config.js`.
+- **Host the frame API separately** (e.g. Render/Fly/VM running
+  `scripts/xtc_frame_coords.py` behind `/api/trajectory-frame`), then build with:
+
+  ```bash
+  VITE_FRAME_API_BASE=https://your-api-host npm run build:pages
+  ```
+
+  Viewer3D calls that host for frames and falls back to the static structure if
+  it is unreachable.
+
 ## How deploy works
 
 - Push to branch **`gitpage`** → GitHub Actions builds `dist-pages/` → deploys via **GitHub Actions Pages**

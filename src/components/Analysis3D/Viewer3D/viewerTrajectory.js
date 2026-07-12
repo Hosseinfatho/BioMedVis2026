@@ -4,13 +4,24 @@ function cacheKey(systemId, trajectoryName, frameIndex) {
   return `${systemId}:${trajectoryName}:${frameIndex}`;
 }
 
+function frameApiBase() {
+  // Optional external backend (e.g. hosted Python XTC service) so that the
+  // static GitHub Pages build can still play trajectories when configured.
+  // Set VITE_FRAME_API_BASE to something like "https://my-api.onrender.com".
+  const base = import.meta.env.VITE_FRAME_API_BASE;
+  if (base && typeof base === 'string' && base.trim()) {
+    return base.trim().replace(/\/+$/, '');
+  }
+  return window.location.origin;
+}
+
 export async function loadFrameCoords(systemId, trajectoryName, frameIndex) {
   const key = cacheKey(systemId, trajectoryName, frameIndex);
   if (frameCache.has(key)) {
     return frameCache.get(key);
   }
 
-  const url = new URL('/api/trajectory-frame', window.location.origin);
+  const url = new URL('/api/trajectory-frame', frameApiBase());
   url.searchParams.set('system', systemId);
   url.searchParams.set('trajectory', trajectoryName);
   url.searchParams.set('frame', String(frameIndex));
