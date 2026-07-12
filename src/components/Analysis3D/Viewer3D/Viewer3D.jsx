@@ -247,6 +247,7 @@ export default function Viewer3D({
   const [status, setStatus] = useState('loading');
   const [frameLoading, setFrameLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [frameNotice, setFrameNotice] = useState(null);
   const [trajectoryName, setTrajectoryName] = useState(DEFAULT_TRAJECTORY);
   const [frameIndex, setFrameIndex] = useState(DEFAULT_FRAME);
   const [selectedState, setSelectedState] = useState(0);
@@ -451,6 +452,7 @@ export default function Viewer3D({
     let cancelled = false;
     setFrameLoading(true);
     setError(null);
+    setFrameNotice(null);
 
     loadFrameCoords(systemId, trajectoryName, frameIndex)
       .then((data) => {
@@ -465,7 +467,21 @@ export default function Viewer3D({
         renderViewer(viewer, getMarkovStateColor(selectedState), residueHighlight);
       })
       .catch((err) => {
-        if (!cancelled) setError(err.message);
+        if (cancelled) return;
+        // Static hosting (e.g. GitHub Pages) has no XTC frame backend.
+        // Fall back to the static PDB topology instead of surfacing an error.
+        try {
+          if (!modelReadyRef.current) {
+            viewer.addModel(pdbData, 'pdb', { keepH: true });
+            modelReadyRef.current = true;
+          }
+          renderViewer(viewer, getMarkovStateColor(selectedState), residueHighlight);
+          setFrameNotice(
+            'Trajectory playback needs a live backend and is unavailable here — showing the static structure only.'
+          );
+        } catch {
+          setError(err.message);
+        }
       })
       .finally(() => {
         if (!cancelled) setFrameLoading(false);
@@ -545,6 +561,18 @@ export default function Viewer3D({
         {status === 'error' && <div className="viewer-3d-error">{error}</div>}
         {status === 'ready' && error && (
           <div className="viewer-3d-error">{error}</div>
+        )}
+        {status === 'ready' && !error && frameNotice && (
+          <div
+            className="viewer-3d-status"
+            style={{
+              background: 'rgba(255, 244, 214, 0.95)',
+              color: '#7a5b00',
+              border: '1px solid #e6cf8b',
+            }}
+          >
+            {frameNotice}
+          </div>
         )}
 
         <div className="viewer-3d-body">
