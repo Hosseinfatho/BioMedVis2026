@@ -1,0 +1,14 @@
+/covampnet_data/CoVAMPnet_data/frames_for_gradient_jobs
+/covampnet_data/CoVAMPnet_data/trained_model_histories
+/covampnet_data/CoVAMPnet_data/training_seeds
+/trajectories
+/public/data
+/node_modules
+/covampnet_data
+/dist/trajectories
+covampnet_data.tar.gz
+dist-pages/trajectories/ZS-ab2/filtered.pdb
+dist-pages/trajectories/ZS-ab3/filtered.pdb
+dist-pages/trajectories/ZS-ab4/filtered.pdb
+dist/data/Residual/structural_index.db
+dist/data/Residual/test_reopen.db

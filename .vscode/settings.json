@@ -1,0 +1,7 @@
+{
+  "javascript.preferences.importModuleSpecifierEnding": "js",
+  "typescript.preferences.importModuleSpecifierEnding": "js",
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "javascript.validate.enable": true,
+  "js/ts.implicitProjectConfig.checkJs": false
+}
