@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import $3Dmol from '3dmol';
 import { getMarkovStateColor } from '../../../utils/constants';
-import { stateOptionsForModel } from '../../../utils/conformationalDriversData';
 import { sortTrajectories } from '../../../utils/sortTrajectories';
 import { DEFAULT_FRAME, DEFAULT_TRAJECTORY, pdbUrl } from './trajectoryConfig';
 import { applyCoordsToViewer, loadFrameCoords } from './viewerTrajectory';
@@ -120,16 +119,6 @@ function renderViewer(viewer, stateColor, residueHighlight = null) {
   viewer.render(undefined, { regen: true });
 }
 
-function firstFrameForState(states, targetState, preferredIndex = 0) {
-  const target = Number(targetState);
-  if (!states?.length || !Number.isFinite(target)) return -1;
-  const fromPreferred = states.findIndex(
-    (state, index) => Number(state) === target && index >= preferredIndex
-  );
-  if (fromPreferred >= 0) return fromPreferred;
-  return states.findIndex((state) => Number(state) === target);
-}
-
 function frameStateAt(row, frameIndex) {
   const state = row?.states?.[frameIndex];
   return Number.isFinite(Number(state)) ? Number(state) : 0;
@@ -145,8 +134,6 @@ function TrajectoryControls({
   frameIndex,
   onFrameChange,
   selectedState,
-  stateOptions,
-  onStateChange,
   stateColor,
 }) {
   const selected =
@@ -200,19 +187,6 @@ function TrajectoryControls({
         ))}
       </select>
 
-      <select
-        className="viewer-3d-select viewer-3d-select--state"
-        value={selectedState}
-        onChange={(e) => onStateChange(Number(e.target.value))}
-        aria-label="State"
-      >
-        {stateOptions.map((state) => (
-          <option key={state} value={state}>
-            State-{state}
-          </option>
-        ))}
-      </select>
-
       <div
         className="viewer-3d-state-badge"
         style={{ color: stateColor, borderColor: stateColor }}
@@ -227,7 +201,6 @@ function TrajectoryControls({
 export default function Viewer3D({
   systems = [],
   defaultSystemId,
-  defaultModelId = 'states2',
   markovState,
   onMarkovStateChange,
   viewerTarget = null,
@@ -271,11 +244,6 @@ export default function Viewer3D({
   const frameState = frameStateAt(selectedRow, frameIndex);
   const stateColor = getMarkovStateColor(selectedState);
 
-  const stateOptions = useMemo(
-    () => stateOptionsForModel(defaultModelId),
-    [defaultModelId]
-  );
-
   const handleFrameChange = useCallback(
     (nextFrame) => {
       const frameState = frameStateAt(selectedRow, nextFrame);
@@ -290,35 +258,6 @@ export default function Viewer3D({
       });
     },
     [selectedRow, systemId, trajectoryName, onMarkovStateChange, onViewerTargetChange]
-  );
-
-  const handleStateChange = useCallback(
-    (nextState) => {
-      const target = Number(nextState);
-      if (!Number.isFinite(target)) return;
-      setSelectedState(target);
-      onMarkovStateChange?.(target);
-      const states = selectedRow?.states ?? [];
-      const nextFrame = firstFrameForState(states, target, 0);
-      const resolvedFrame = nextFrame >= 0 ? nextFrame : frameIndex;
-      if (nextFrame >= 0) {
-        setFrameIndex(nextFrame);
-      }
-      onViewerTargetChange?.({
-        systemId,
-        trajectoryName,
-        frameIndex: resolvedFrame,
-        state: target,
-      });
-    },
-    [
-      selectedRow,
-      systemId,
-      trajectoryName,
-      frameIndex,
-      onMarkovStateChange,
-      onViewerTargetChange,
-    ]
   );
 
   useEffect(() => {
@@ -534,8 +473,6 @@ export default function Viewer3D({
             frameIndex={frameIndex}
             onFrameChange={handleFrameChange}
             selectedState={selectedState}
-            stateOptions={stateOptions}
-            onStateChange={handleStateChange}
             stateColor={stateColor}
           />
         </div>

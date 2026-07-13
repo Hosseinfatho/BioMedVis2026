@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -14,7 +15,34 @@ except ImportError:
     sys.exit(1)
 
 ROOT = Path(__file__).resolve().parents[1]
-TRAJ_ROOT = ROOT / "trajectories"
+
+
+def resolve_traj_root() -> Path:
+    """Locate the raw trajectory tree (PDB + per-simulation XTC folders).
+
+    Order of resolution:
+    1. TRAJ_ROOT env var (absolute or relative to the project root).
+    2. Known dataset locations shipped with this repo.
+    3. Legacy ``trajectories/`` fallback.
+    """
+    override = os.environ.get("TRAJ_ROOT")
+    if override:
+        candidate = Path(override)
+        if not candidate.is_absolute():
+            candidate = ROOT / candidate
+        return candidate
+
+    candidates = [
+        ROOT / "trajectories",
+        ROOT / "covampnet_data" / "CoVAMPnet_data" / "trajectories",
+    ]
+    for candidate in candidates:
+        if candidate.is_dir() and any(candidate.glob("ZS-ab*/filtered.pdb")):
+            return candidate
+    return candidates[0]
+
+
+TRAJ_ROOT = resolve_traj_root()
 
 SYSTEM_FOLDERS = {
     "zsab2": "ZS-ab2",

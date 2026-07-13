@@ -51,7 +51,7 @@ const DIALOG_COPY = {
       {
         heading: '2. Compare matrices',
         body:
-          'Pick System A and B, click Compare, and inspect ratio matrices with the state trace above. Brush columns to sync a time window; use Alignment and Motif pattern to focus on specific frames and state sequences.',
+          'Pick System A and B, click Compare, and inspect ratio matrices with the state trace above. Brush columns to sync a time window; use Alignment and State transition pattern to focus on specific frames and state sequences.',
       },
       {
         heading: '3. 3D analysis',

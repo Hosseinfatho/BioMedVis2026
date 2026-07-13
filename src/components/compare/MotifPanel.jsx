@@ -32,7 +32,7 @@ export default function MotifPanel({
 
   return (
     <div className="motif-panel">
-      <span className="motif-panel-label">Motif pattern</span>
+      <span className="motif-panel-label">State transition pattern</span>
       <div className="motif-state-buttons">
         {stateOptions.map((s) => (
           <button
