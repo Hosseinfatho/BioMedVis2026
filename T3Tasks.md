@@ -1,5 +1,3 @@
-> **Master doc:** [`../explain.md`](../explain.md) §3 (tasks) · §5 (task→component map)
-
 1. Which conformational changes are responsible for Markov state assignment?
 Use: states*.txt + filtered.pdb + output.filtered.xtc
 states*.txt gives the Markov state label for each frame.

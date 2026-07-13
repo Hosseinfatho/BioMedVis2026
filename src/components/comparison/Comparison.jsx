@@ -16,7 +16,7 @@ export default function Comparison({
 }) {
   if (!systemData.length) return null;
 
-  if (systemData.length === 2 && !activeMotif) {
+  if (systemData.length === 2) {
     const [a, b] = systemData;
     return (
       <div className="comparison">

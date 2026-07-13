@@ -1,7 +1,5 @@
 # Data overview
 
-> **Master doc:** [`../explain.md`](../explain.md) §2 — full data inventory, flow diagram, and preprocess outputs.
-
 This project uses two related datasets from the same CoVAMPnet Aβ42 simulations.
 
 | Source | URL | Used for |

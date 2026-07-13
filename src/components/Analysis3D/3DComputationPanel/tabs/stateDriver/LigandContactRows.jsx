@@ -11,8 +11,6 @@ import {
 
 const PAD = STATE_DRIVER_CHAIN_PAD;
 const CHAIN_BASE_Y = STATE_DRIVER_CHAIN_BASE_Y;
-/** Left gutter for row labels (Free / TMP / SPA) so markers stay aligned with the arc. */
-const LIGAND_ROW_LABEL_COL = 40;
 
 /** Between compact and old markers; sized for readable residue labels. */
 function markerRadius(/** @type {number} */ strength) {
@@ -67,14 +65,11 @@ export default function LigandContactRows({
 
   if (!visibleRows.length) return null;
 
-  const viewX = xViewBounds.x - LIGAND_ROW_LABEL_COL;
-  const viewW = xViewBounds.width + LIGAND_ROW_LABEL_COL;
-
   return (
     <div ref={wrapRef} className="state-driver-ligand-wrap">
       <svg
         className="state-driver-ligand-svg"
-        viewBox={`${viewX} 0 ${viewW} ${svgHeight}`}
+        viewBox={`${xViewBounds.x} 0 ${xViewBounds.width} ${svgHeight}`}
         preserveAspectRatio="xMidYMid meet"
         role="img"
         aria-label="Ligand contact rows for active systems"
@@ -84,7 +79,7 @@ export default function LigandContactRows({
           return (
             <g key={row.systemId}>
               <text
-                x={viewX + 6}
+                x={xViewBounds.x + 4}
                 y={y + 4}
                 className="state-driver-ligand-row-label"
                 fill={row.color}

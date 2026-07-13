@@ -150,8 +150,66 @@ function drawSystemLayer(ctx, columnTrajectories, geom, colorMode, styleMode) {
   return columnPoints;
 }
 
+// Bands where state sequences disagree (no dots).
+function drawDifferenceLayer(ctx, trajsA, trajsB, geom, colorMode = 'color') {
+  const { numStates, viewStart, visibleCount, totalCols, colW, plotTop, plotH } = geom;
+
+  ctx.save();
+  ctx.globalAlpha = colorMode === 'color' ? 0.92 : 0.65;
+
+  for (let localC = 0; localC < visibleCount; localC++) {
+    const globalC = viewStart + localC;
+    if (globalC >= totalCols) break;
+
+    const x0 = LABEL_W + localC * colW + 1;
+    const innerW = Math.max(2, colW - 2);
+    const statesA = downsampleStates(trajsA[globalC]?.states || [], MAX_PTS_PER_COL);
+    const statesB = downsampleStates(trajsB[globalC]?.states || [], MAX_PTS_PER_COL);
+    if (!statesA.length && !statesB.length) continue;
+
+    const n = Math.max(statesA.length, statesB.length, 1);
+    let runStart = null;
+    let runStateB = null;
+
+    const flushRun = (endF) => {
+      if (runStart == null || runStateB == null) return;
+      const xA = x0 + (n > 1 ? (runStart / (n - 1)) * innerW : 0);
+      const xB = x0 + (n > 1 ? (endF / (n - 1)) * innerW : innerW);
+      const y = yForState(runStateB, numStates, plotTop, plotH);
+      ctx.fillStyle = colorForState(runStateB, colorMode);
+      ctx.fillRect(xA, y - 3, Math.max(2, xB - xA), 6);
+      runStart = null;
+      runStateB = null;
+    };
+
+    for (let f = 0; f < n; f++) {
+      const sa = statesA[Math.min(f, statesA.length - 1)] ?? 0;
+      const sb = statesB[Math.min(f, statesB.length - 1)] ?? 0;
+      if (sa === sb) {
+        flushRun(f);
+        continue;
+      }
+      if (runStart == null) {
+        runStart = f;
+        runStateB = sb;
+      } else if (runStateB !== sb) {
+        flushRun(f);
+        runStart = f;
+        runStateB = sb;
+      }
+    }
+    flushRun(n - 1);
+  }
+
+  ctx.restore();
+}
+
 export default function Trace({
-  traceSystems = [],
+  dataA,
+  dataB = null,
+  systemALabel = 'System one',
+  systemBLabel = 'System two',
+  canCompare = false,
   numStates,
   matrixSlots = [],
   alignmentId,
@@ -168,37 +226,25 @@ export default function Trace({
   const plotRef = useRef(null);
   const hoverRaf = useRef(null);
   const [plotW, setPlotW] = useState(0);
+  const [layerState, setLayerState] = useState({
+    layers: { systemA: true, systemB: false, difference: false },
+    order: ['systemA'],
+  });
+  const prevCanCompare = useRef(canCompare);
 
-  const systemIds = useMemo(
-    () => traceSystems.map((s) => s.systemId),
-    [traceSystems]
+  const trajsA = useMemo(
+    () => alignedTrajectories(dataA, matrixSlots, alignmentId),
+    [dataA, matrixSlots, alignmentId]
+  );
+  const trajsB = useMemo(
+    () =>
+      dataB?.length
+        ? alignedTrajectories(dataB, matrixSlots, alignmentId)
+        : [],
+    [dataB, matrixSlots, alignmentId]
   );
 
-  const [layerState, setLayerState] = useState({
-    layers: {},
-    order: [],
-  });
-
-  useEffect(() => {
-    if (!systemIds.length) return;
-    setLayerState({
-      layers: Object.fromEntries(systemIds.map((id, index) => [id, index === 0])),
-      order: [...systemIds],
-    });
-  }, [systemIds.join('|')]);
-
-  const alignedBySystem = useMemo(() => {
-    const out = {};
-    for (const sys of traceSystems) {
-      out[sys.systemId] = alignedTrajectories(sys.rows, matrixSlots, alignmentId);
-    }
-    return out;
-  }, [traceSystems, matrixSlots, alignmentId]);
-
-  const totalCols =
-    traceSystems[0]?.systemId && alignedBySystem[traceSystems[0].systemId]?.length
-      ? alignedBySystem[traceSystems[0].systemId].length
-      : numCols;
+  const totalCols = trajsA.length || numCols;
   const visibleCount = viewCount ?? totalCols;
 
   const visSel = useMemo(
@@ -208,15 +254,22 @@ export default function Trace({
 
   const { layers, order: layerOrder } = layerState;
 
-  const enabledLayers = useMemo(
-    () => systemIds.filter((id) => layers[id]),
-    [systemIds, layers]
-  );
+  const enabledLayers = useMemo(() => {
+    const ids = [];
+    if (layers.systemA) ids.push('systemA');
+    if (layers.systemB && canCompare) ids.push('systemB');
+    if (layers.difference && canCompare) ids.push('difference');
+    return ids;
+  }, [layers, canCompare]);
 
   const topLayer = useMemo(() => {
     const activeOrder = layerOrder.filter((id) => enabledLayers.includes(id));
     return activeOrder[activeOrder.length - 1] || enabledLayers[enabledLayers.length - 1] || null;
   }, [layerOrder, enabledLayers]);
+
+  const showA = layers.systemA;
+  const showB = layers.systemB && canCompare;
+  const showDiff = layers.difference && canCompare;
 
   const colorForLayer = useCallback(
     (layerId) => (layerId === topLayer ? 'color' : 'gray-states'),
@@ -227,20 +280,38 @@ export default function Trace({
     [topLayer]
   );
 
-  const toggleLayer = useCallback((key) => {
-    setLayerState((prev) => {
-      const nextLayers = { ...prev.layers, [key]: !prev.layers[key] };
-      const nextOrder = [...prev.order];
-      if (nextLayers[key]) {
-        if (!nextOrder.includes(key)) nextOrder.push(key);
-      } else {
-        const idx = nextOrder.indexOf(key);
-        if (idx >= 0) nextOrder.splice(idx, 1);
-      }
-      if (!Object.values(nextLayers).some(Boolean)) return prev;
-      return { layers: nextLayers, order: nextOrder };
-    });
-  }, []);
+  const toggleLayer = useCallback(
+    (key) => {
+      if ((key === 'systemB' || key === 'difference') && !canCompare) return;
+      setLayerState((prev) => {
+        const nextLayers = { ...prev.layers, [key]: !prev.layers[key] };
+        const nextOrder = [...prev.order];
+        if (nextLayers[key]) {
+          if (!nextOrder.includes(key)) nextOrder.push(key);
+        } else {
+          const idx = nextOrder.indexOf(key);
+          if (idx >= 0) nextOrder.splice(idx, 1);
+        }
+        const anyOn =
+          nextLayers.systemA ||
+          (nextLayers.systemB && canCompare) ||
+          (nextLayers.difference && canCompare);
+        if (!anyOn) return prev;
+        return { layers: nextLayers, order: nextOrder };
+      });
+    },
+    [canCompare]
+  );
+
+  useEffect(() => {
+    if (prevCanCompare.current && !canCompare) {
+      setLayerState({
+        layers: { systemA: true, systemB: false, difference: false },
+        order: ['systemA'],
+      });
+    }
+    prevCanCompare.current = canCompare;
+  }, [canCompare]);
 
   useEffect(() => {
     const el = plotRef.current;
@@ -381,16 +452,14 @@ export default function Trace({
       ctx.fillRect(LABEL_W + (hoverIndex - viewStart) * colW, plotTop, colW, plotH);
     }
 
-    for (const layerId of layerOrder) {
-      if (!layers[layerId]) continue;
-      const trajs = alignedBySystem[layerId] || [];
-      drawSystemLayer(
-        ctx,
-        trajs,
-        geom,
-        colorForLayer(layerId),
-        styleForLayer(layerId)
-      );
+    if (showA) {
+      drawSystemLayer(ctx, trajsA, geom, colorForLayer('systemA'), styleForLayer('systemA'));
+    }
+    if (showB) {
+      drawSystemLayer(ctx, trajsB, geom, colorForLayer('systemB'), styleForLayer('systemB'));
+    }
+    if (showDiff) {
+      drawDifferenceLayer(ctx, trajsA, trajsB, geom, colorForLayer('difference'));
     }
 
     ctx.strokeStyle = '#ddd';
@@ -404,12 +473,14 @@ export default function Trace({
     totalCols,
     visibleCount,
     viewStart,
-    alignedBySystem,
-    layerOrder,
-    layers,
+    trajsA,
+    trajsB,
     numStates,
     hoverIndex,
     visSel,
+    showA,
+    showB,
+    showDiff,
     colorForLayer,
     styleForLayer,
     showColumnLabels,
@@ -440,23 +511,41 @@ export default function Trace({
       </div>
       <div className="trace-layer-controls">
         <div className="trace-layer-controls-title">Layers</div>
-        {traceSystems.map((sys) => (
-          <label
-            key={sys.systemId}
-            className={`trace-layer-option${topLayer === sys.systemId ? ' trace-layer-option-active' : ''}`}
-          >
-            <input
-              type="checkbox"
-              checked={Boolean(layers[sys.systemId])}
-              onChange={() => toggleLayer(sys.systemId)}
-            />
-            <span
-              className="state-driver-system-check-swatch trace-layer-swatch"
-              data-system={sys.systemId}
-            />
-            {sys.label}
-          </label>
-        ))}
+        <label
+          className={`trace-layer-option${topLayer === 'systemA' ? ' trace-layer-option-active' : ''}`}
+        >
+          <input
+            type="checkbox"
+            checked={layers.systemA}
+            onChange={() => toggleLayer('systemA')}
+          />
+          <span className="trace-layer-swatch trace-layer-swatch-a" />
+          {systemALabel}
+        </label>
+        <label
+          className={`trace-layer-option${canCompare ? '' : ' disabled'}${topLayer === 'systemB' ? ' trace-layer-option-active' : ''}`}
+        >
+          <input
+            type="checkbox"
+            checked={layers.systemB}
+            disabled={!canCompare}
+            onChange={() => toggleLayer('systemB')}
+          />
+          <span className="trace-layer-swatch trace-layer-swatch-b" />
+          {systemBLabel}
+        </label>
+        <label
+          className={`trace-layer-option${canCompare ? '' : ' disabled'}${topLayer === 'difference' ? ' trace-layer-option-active' : ''}`}
+        >
+          <input
+            type="checkbox"
+            checked={layers.difference}
+            disabled={!canCompare}
+            onChange={() => toggleLayer('difference')}
+          />
+          <span className="trace-layer-swatch trace-layer-swatch-diff" />
+          Difference
+        </label>
       </div>
     </div>
   );

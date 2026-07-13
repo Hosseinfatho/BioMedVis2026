@@ -1,7 +1,4 @@
 ## Analysis of conformational states in adaptive molecular dynamics simulations
-
-> **Full documentation:** [`src/components/Analysis3D/3Danalysis.md`](src/components/Analysis3D/3Danalysis.md) — Analysis3D, StateSignature, StateDriver. Master overview: [`../explain.md`](../explain.md).
-
 Challenge 1: This challenge is focused on adaptive molecular dynamics simulation data, which is used to explore how biomolecules change their structure and interact with other molecules over time. These simulations can reveal important changes and are essential to drug design. However, they generate large and abstract datasets that make it difficult to explore the changes, compare trajectories, or reason about molecular behavior across entire ensembles.
 
 ## More info http://biovis.net/2026/biovisChallenges_vis/challenge_1/
