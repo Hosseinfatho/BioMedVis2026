@@ -960,8 +960,19 @@ body {
   padding: 0 10px;
 }
 
+.compare-system-checks {
+  flex-wrap: wrap;
+}
+
+.compare-systems-label {
+  flex: 0 0 auto;
+  margin-right: 4px;
+}
+
 .compare-toolbar-section--systems {
   padding-left: 0;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .compare-toolbar-section--motif {

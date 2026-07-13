@@ -18,8 +18,17 @@ export default function ComparisonRow({
   onMotifHoverChange,
   showXAxis = false,
 }) {
-  const searchRows =
-    viewMode === 'concatenated' && originalRows?.length ? originalRows : rows;
+  const searchRows = useMemo(() => {
+    const source =
+      viewMode === 'concatenated' && originalRows?.length ? originalRows : rows;
+    if (!source?.length) return [];
+    return [...source].sort(
+      (a, b) =>
+        (a.startTime ?? 0) - (b.startTime ?? 0) ||
+        (a.orderIndex ?? 0) - (b.orderIndex ?? 0) ||
+        String(a.name).localeCompare(String(b.name))
+    );
+  }, [rows, originalRows, viewMode]);
 
   const globalOccurrences = useMemo(() => {
     if (!activeMotif || !searchRows?.length) return [];

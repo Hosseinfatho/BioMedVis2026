@@ -1,4 +1,5 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
+import { buildMatrixSlotsFromSystemData, mergeMatrixSlots } from './utils/matrixSlots';
 import Title from './components/Title';
 import ControlPanel from './components/ControlPanel';
 import Comparison from './components/comparison/Comparison';
@@ -31,6 +32,16 @@ export default function App() {
     setHoveredMotif(null);
   }, []);
 
+  const handleSlotsChange = useCallback((compareSlots) => {
+    if (!compareSlots?.length) return;
+    setMatrixSlots((prev) => mergeMatrixSlots(prev, compareSlots));
+  }, []);
+
+  const comparisonSystemIds = useMemo(
+    () => systemData.map(({ systemId }) => systemId),
+    [systemData]
+  );
+
   const handleMotifHoverChange = useCallback((systemId, occurrenceIndex) => {
     if (occurrenceIndex == null) {
       setHoveredMotif(null);
@@ -58,10 +69,12 @@ export default function App() {
       );
       setSystemData(results);
       setGenerated(true);
+      setMatrixSlots(buildMatrixSlotsFromSystemData(results));
       setChartTimeOffsetB(DEFAULT_SYSTEM_B_TIME_OFFSET);
     } catch (err) {
       setError(err.message);
       setSystemData([]);
+      setMatrixSlots([]);
     } finally {
       setLoading(false);
     }
@@ -111,11 +124,13 @@ export default function App() {
           numStates={numStates}
           defaultA={selectedSystems[0]}
           defaultB={selectedSystems[1]}
+          comparisonSystemIds={comparisonSystemIds}
+          sharedMatrixSlots={matrixSlots}
           selection={selection}
           onSelectionChange={setSelection}
           hoverIndex={hoverIndex}
           onHoverChange={setHoverIndex}
-          onSlotsChange={setMatrixSlots}
+          onSlotsChange={handleSlotsChange}
           activeMotif={activeMotif}
           onActiveMotifChange={handleActiveMotifChange}
           hoveredMotif={hoveredMotif}
