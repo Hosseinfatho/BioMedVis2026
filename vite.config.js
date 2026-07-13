@@ -6,6 +6,71 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const isPagesBuild = process.env.VITE_PAGES_BUILD === '1';
+
+const PAGES_PUBLIC_FILES = [
+  'favicon.svg',
+  'icons.svg',
+  '.nojekyll',
+  path.join('data', 'zsab2'),
+  path.join('data', 'zsab3'),
+  path.join('data', 'zsab4'),
+  path.join('data', 'Residual', 'state_signature_residuals.json'),
+  path.join('data', 'Residual', 'state_driver_interactions.json'),
+  path.join('data', 'Residual', 'state_trajectory_frame_counts.json'),
+  path.join('data', 'Residual', 'representative_frames.csv'),
+  path.join('data', 'Residual', 'state_summary.csv'),
+  path.join('data', 'Residual', 'rmsd_by_state.csv'),
+  path.join('data', 'Residual', 'ligand_contacts.csv'),
+  path.join('data', 'Residual', 'state_contact_maps.json'),
+  path.join('trajectories', 'ZS-ab2', 'filtered.pdb'),
+  path.join('trajectories', 'ZS-ab3', 'filtered.pdb'),
+  path.join('trajectories', 'ZS-ab4', 'filtered.pdb'),
+];
+
+function copyPagesPublicAssets(publicDir, outDir) {
+  for (const rel of PAGES_PUBLIC_FILES) {
+    const normalized = rel.split(path.sep).join('/');
+    const src = path.join(publicDir, rel);
+    const dest = path.join(outDir, rel);
+
+    if (!fs.existsSync(src)) {
+      console.warn(`[pages-public-copy] missing: ${normalized}`);
+      continue;
+    }
+
+    if (fs.statSync(src).isDirectory()) {
+      fs.cpSync(src, dest, {
+        recursive: true,
+        filter: (srcPath) => {
+          const relPath = path.relative(src, srcPath).split(path.sep).join('/');
+          return relPath === '' || relPath.endsWith('.txt');
+        },
+      });
+      continue;
+    }
+
+    fs.mkdirSync(path.dirname(dest), { recursive: true });
+    fs.copyFileSync(src, dest);
+  }
+}
+
+function pagesPublicCopy() {
+  let resolvedConfig;
+  return {
+    name: 'pages-public-copy',
+    configResolved(config) {
+      resolvedConfig = config;
+    },
+    closeBundle() {
+      if (!isPagesBuild || !resolvedConfig) return;
+      const publicDir = resolvedConfig.publicDir;
+      const outDir = path.resolve(resolvedConfig.root, resolvedConfig.build.outDir);
+      if (!publicDir || !fs.existsSync(publicDir)) return;
+      copyPagesPublicAssets(publicDir, outDir);
+    },
+  };
+}
 
 function serveTrajectories() {
   return {
@@ -86,5 +151,10 @@ function trajectoryFrameApi() {
 }
 
 export default defineConfig({
-  plugins: [react(), serveTrajectories(), trajectoryFrameApi()],
+  base: process.env.VITE_BASE_PATH || '/',
+  build: {
+    copyPublicDir: !isPagesBuild,
+    outDir: isPagesBuild ? 'dist-pages' : 'dist',
+  },
+  plugins: [pagesPublicCopy(), react(), serveTrajectories(), trajectoryFrameApi()],
 });

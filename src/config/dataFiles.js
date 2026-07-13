@@ -48,17 +48,21 @@ export const VIEW_MODES = {
   concatenated: { label: 'Concatenated' },
 };
 
+function dataFolder(systemId) {
+  return `${import.meta.env.BASE_URL}data/${systemId}/`;
+}
+
 export function getStateFilePath(systemId, modelId) {
   const system = SYSTEMS[systemId];
-  return `${system.folder}${system.files[modelId]}`;
+  return `${dataFolder(systemId)}${system.files[modelId]}`;
 }
 
 export function getOrderFilePath(systemId) {
   const system = SYSTEMS[systemId];
-  return `${system.folder}${system.files.order}`;
+  return `${dataFolder(systemId)}${system.files.order}`;
 }
 
 export function getConcatenatedFilePath(systemId) {
   const system = SYSTEMS[systemId];
-  return `${system.folder}${system.files.concatenated}`;
+  return `${dataFolder(systemId)}${system.files.concatenated}`;
 }

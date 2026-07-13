@@ -465,7 +465,18 @@ export default function Viewer3D({
         renderViewer(viewer, getMarkovStateColor(selectedState), residueHighlight);
       })
       .catch((err) => {
-        if (!cancelled) setError(err.message);
+        if (cancelled) return;
+        // Static hosting (e.g. GitHub Pages) has no XTC frame backend.
+        // Fall back to the static PDB topology instead of surfacing an error.
+        try {
+          if (!modelReadyRef.current) {
+            viewer.addModel(pdbData, 'pdb', { keepH: true });
+            modelReadyRef.current = true;
+          }
+          renderViewer(viewer, getMarkovStateColor(selectedState), residueHighlight);
+        } catch {
+          setError(err.message);
+        }
       })
       .finally(() => {
         if (!cancelled) setFrameLoading(false);

@@ -12,9 +12,9 @@ export function rawSystemFolder(systemId) {
 }
 
 export function pdbUrl(systemId) {
-  return `/trajectories/${rawSystemFolder(systemId)}/filtered.pdb`;
+  return `${import.meta.env.BASE_URL}trajectories/${rawSystemFolder(systemId)}/filtered.pdb`;
 }
 
 export function xtcUrl(systemId, trajectoryName) {
-  return `/trajectories/${rawSystemFolder(systemId)}/${trajectoryName}/output.filtered.xtc`;
+  return `${import.meta.env.BASE_URL}trajectories/${rawSystemFolder(systemId)}/${trajectoryName}/output.filtered.xtc`;
 }
