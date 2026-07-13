@@ -1,7 +1,11 @@
 export function parseConcatenated(text) {
   if (!text || !text.trim()) return [];
 
-  return text
+  // Normalise Windows/Mac line endings so paragraph and line splits, plus the
+  // `(.+)$` segment matches below, are not broken by trailing "\r".
+  const normalised = text.replace(/\r\n?/g, '\n');
+
+  return normalised
     .trim()
     .split(/\n\n+/)
     .map((block, pathIndex) => {
